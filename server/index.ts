@@ -4,6 +4,7 @@ import cors from 'cors';
 import { GoogleGenAI, Modality, Type } from "@google/genai";
 import dotenv from 'dotenv';
 import path from 'path';
+import crypto from 'crypto';
 import { createServer as createViteServer } from 'vite';
 import { getDb, saveDb, hashPassword, generateSalt } from './database';
 import Stripe from 'stripe';
@@ -211,47 +212,220 @@ async function startServer() {
         }
     });
 
-    // 3. Auth Google (Simulated for frontend, but registers/returns valid server user)
-    app.post('/api/auth/google', async (req, res) => {
+    // 3. Auth Google URL: Devuelve la URL de autorización para el login de Google
+    app.get('/api/auth/google/url', async (req, res) => {
         try {
-            const { role } = req.body;
-            const db = await getDb();
-            
-            // Re-use or create default google user
-            const email = 'google-user@virtus.com';
-            let user = db.users.find(u => u.email === email);
-            if (!user) {
-                const salt = generateSalt();
-                const passwordHash = hashPassword('google-secret', salt);
-                const userId = 'mock-user-google';
-                const name = 'Juan Pérez';
-                
-                user = {
-                    id: userId,
-                    name,
-                    email,
-                    role: (role || 'shopOwner') as any,
-                    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Juan',
-                    passwordHash,
-                    salt,
-                    shopId: '1' // Default "The Dapper Cut"
-                };
-                db.users.push(user);
-                await saveDb();
+            const redirect_uri = req.query.redirect_uri as string;
+            const role = (req.query.role || 'shopOwner') as string;
+
+            if (!redirect_uri) {
+                return res.status(400).json({ error: 'Falta el parámetro obligatorio redirect_uri' });
             }
 
-            res.json({
-                user: {
-                    id: user.id,
-                    name: user.name,
-                    role: user.role,
-                    avatarUrl: user.avatarUrl,
-                    shopId: user.shopId
-                }
+            const googleClientId = process.env.GOOGLE_CLIENT_ID;
+            if (!googleClientId) {
+                return res.status(400).json({ error: 'GOOGLE_CLIENT_ID no está configurado en el servidor' });
+            }
+
+            const params = new URLSearchParams({
+                client_id: googleClientId,
+                redirect_uri: redirect_uri,
+                response_type: 'code',
+                scope: 'openid email profile',
+                access_type: 'offline',
+                prompt: 'select_account',
+                state: JSON.stringify({ role })
             });
+
+            const url = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+            res.json({ url });
         } catch (error: any) {
-            console.error('Error in /api/auth/google:', error);
+            console.error('Error en /api/auth/google/url:', error);
             res.status(500).json({ error: error.message });
+        }
+    });
+
+    // 4. Auth Google Callback: Procesa la redirección de Google con el código de autorización
+    app.get(['/api/auth/google/callback', '/auth/google/callback'], async (req, res) => {
+        try {
+            const { code, state } = req.query;
+            if (!code) {
+                return res.status(400).send('Falta el código de autorización de Google.');
+            }
+
+            let role = 'shopOwner';
+            try {
+                if (state) {
+                    const parsedState = JSON.parse(state as string);
+                    if (parsedState.role) role = parsedState.role;
+                }
+            } catch (e) {
+                console.warn('No se pudo analizar el estado de Google OAuth:', e);
+            }
+
+            const googleClientId = process.env.GOOGLE_CLIENT_ID;
+            const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+            if (!googleClientId || !googleClientSecret) {
+                return res.status(500).send('GOOGLE_CLIENT_ID o GOOGLE_CLIENT_SECRET no están configurados en el servidor.');
+            }
+
+            // Reconstruir la redirect_uri exacta para el canje del código
+            const protocol = req.secure || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
+            const host = req.headers['x-forwarded-host'] || req.headers.host;
+            const redirectUri = `${protocol}://${host}/api/auth/google/callback`;
+
+            // Canjear el código por tokens
+            const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    code: code as string,
+                    client_id: googleClientId,
+                    client_secret: googleClientSecret,
+                    redirect_uri: redirectUri,
+                    grant_type: 'authorization_code'
+                }).toString()
+            });
+
+            const tokenData = await tokenRes.json();
+            if (!tokenRes.ok) {
+                console.error('Error al canjear el código de Google:', tokenData);
+                return res.status(400).send(`Error al canjear el código de Google: ${tokenData.error_description || tokenData.error}`);
+            }
+
+            const { access_token } = tokenData;
+
+            // Obtener la información de perfil del usuario
+            const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+                headers: { Authorization: `Bearer ${access_token}` }
+            });
+
+            const userInfo = await userInfoRes.json();
+            if (!userInfoRes.ok) {
+                console.error('Error al obtener la información de Google:', userInfo);
+                return res.status(400).send('Error al obtener la información del perfil del usuario.');
+            }
+
+            const { id: googleId, email, name, picture } = userInfo;
+            if (!email) {
+                return res.status(400).send('No se recibió el correo del usuario desde Google.');
+            }
+
+            const db = await getDb();
+            const lowerEmail = email.toLowerCase();
+            let user = db.users.find(u => u.email?.toLowerCase() === lowerEmail);
+
+            if (!user) {
+                const userId = `google-${googleId || crypto.randomBytes(8).toString('hex')}`;
+                const shopId = `shop-${crypto.randomBytes(8).toString('hex')}`;
+
+                user = {
+                    id: userId,
+                    name: name || 'Usuario de Google',
+                    email: lowerEmail,
+                    role: (role || 'shopOwner') as any,
+                    avatarUrl: picture || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name || 'Google')}`,
+                    shopId: role === 'shopOwner' ? shopId : undefined
+                };
+
+                if (role === 'shopOwner') {
+                    const defaultShop = {
+                        id: shopId,
+                        ownerId: userId,
+                        name: `Barbería de ${name || 'Google User'}`,
+                        aiName: 'Leo, tu estilista AI',
+                        welcomeMessage: `¡Hola! Soy Leo, tu estilista experto e Inteligencia Artificial de la Barbería. ¿Qué corte o estilo tienes en mente hoy? Sube una foto de tu rostro o de un corte que te guste y la analizamos de inmediato.`,
+                        aiPersona: `un barbero Master de clase mundial: profesional, carismático, experto en tendencias actuales y extremadamente atento al detalle. Hablas con confianza pero siempre con un tono cercano y motivador.`,
+                        description: 'Una barbería moderna con estilo de vanguardia.',
+                        address: 'Calle Principal #123',
+                        phone: '555-0199',
+                        hours: {
+                            'Lunes-Viernes': '9:00 AM - 8:00 PM',
+                            'Sábados': '9:00 AM - 6:00 PM',
+                            'Domingos': 'Cerrado'
+                        },
+                        gallery: [
+                            'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&q=80&w=600',
+                            'https://images.unsplash.com/photo-1621605815971-fbc98d665033?auto=format&fit=crop&q=80&w=600'
+                        ],
+                        services: [{ name: 'Corte de Cabello Premium', price: '$25' }],
+                        barbers: [{ name: name || 'Dueño', specialty: 'General', imageUrl: '' }],
+                        plan: 'Freemium' as const,
+                        billingHistory: [],
+                        paymentMethod: { type: 'Visa' as const, last4: '0000', expiry: '00/00' }
+                    };
+                    db.shops.push(defaultShop);
+                }
+
+                db.users.push(user);
+                await saveDb();
+            } else {
+                let updated = false;
+                if (name && user.name !== name) {
+                    user.name = name;
+                    updated = true;
+                }
+                if (picture && user.avatarUrl !== picture) {
+                    user.avatarUrl = picture;
+                    updated = true;
+                }
+                if (updated) {
+                    await saveDb();
+                }
+            }
+
+            res.send(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Autenticación Exitosa</title>
+                </head>
+                <body style="font-family: sans-serif; text-align: center; padding: 50px; background-color: #f9fafb; color: #111827;">
+                    <div style="max-width: 400px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+                        <h2 style="color: #10B981; margin-top: 0;">¡Conectado con Google!</h2>
+                        <p>Iniciando sesión en Barber Shop AI...</p>
+                        <p style="font-size: 14px; color: #6B7280;">Esta ventana se cerrará automáticamente en un momento.</p>
+                    </div>
+                    <script>
+                        if (window.opener) {
+                            window.opener.postMessage({
+                                type: 'GOOGLE_AUTH_SUCCESS',
+                                user: ${JSON.stringify({
+                                    id: user.id,
+                                    name: user.name,
+                                    role: user.role,
+                                    avatarUrl: user.avatarUrl,
+                                    shopId: user.shopId
+                                })}
+                            }, '*');
+                            window.close();
+                        } else {
+                            window.location.href = '/';
+                        }
+                    </script>
+                </body>
+                </html>
+            `);
+
+        } catch (error: any) {
+            console.error('Error en /api/auth/google/callback:', error);
+            res.status(500).send(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Error de Autenticación</title>
+                </head>
+                <body style="font-family: sans-serif; text-align: center; padding: 50px; background-color: #f9fafb; color: #111827;">
+                    <div style="max-width: 400px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+                        <h2 style="color: #EF4444; margin-top: 0;">Error de Autenticación</h2>
+                        <p>Ocurrió un error al iniciar sesión con Google.</p>
+                        <p style="font-size: 14px; color: #EF4444;">${error.message}</p>
+                        <button onclick="window.close()" style="margin-top: 15px; padding: 8px 16px; background: #EF4444; color: white; border: none; border-radius: 6px; cursor: pointer;">Cerrar Ventana</button>
+                   </div>
+                </body>
+                </html>
+            `);
         }
     });
 
