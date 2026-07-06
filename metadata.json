@@ -1,0 +1,6 @@
+{
+  "name": "Barber Shop AI",
+  "description": "An AI-powered virtual mirror and style assistant for modern barber shops. Customers can get haircut recommendations, visualize new styles, and try different colors.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

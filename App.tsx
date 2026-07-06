@@ -1,0 +1,444 @@
+
+import React, { useState, useEffect, useRef } from 'react';
+import { Message, BarberShop, Booking, User as AppUser } from './types';
+import { barbershops as mockShops } from './barbershops';
+import { 
+    getShopForUser, 
+    subscribeToBookings, 
+    createDefaultShopForUser,
+    uploadBase64Image,
+    updateShop,
+    getAllShops
+} from './services/barberShopService';
+import { onAuthStateChanged, logoutUser as localLogout } from './services/authService';
+
+import Sidebar from './components/Sidebar';
+import MainHeader from './components/MainHeader';
+import ChatView from './views/ChatView';
+import BookingView from './views/BookingView';
+import BookingsListView from './views/BookingsListView';
+import ShopProfileView from './views/ShopProfileView';
+import BillingView from './views/BillingView';
+import AdminView from './views/AdminView';
+import HomeView from './views/HomeView';
+import LoginView from './views/LoginView';
+import MirrorView from './views/MirrorView';
+import { getStyleRecommendations, generateStyledImage } from './services/geminiService';
+import ImageModal from './components/ImageModal';
+
+type ActiveView = 'chat' | 'mirror' | 'booking' | 'bookingsList' | 'shopProfile' | 'billing' | 'admin' | 'platformAdmin';
+type Screen = 'home' | 'login' | 'app';
+type MirrorState = 'initial' | 'processing' | 'results';
+
+const App: React.FC = () => {
+  const [screen, setScreen] = useState<Screen>('home');
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
+  const [shops, setShops] = useState<BarberShop[]>(mockShops); 
+  const [activeShopId, setActiveShopId] = useState<string | null>(null);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [activeView, setActiveView] = useState<ActiveView>('admin');
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([]);
+  
+  // Mirror State
+  const [mirrorState, setMirrorState] = useState<MirrorState>('initial');
+  const [frontImage, setFrontImage] = useState<string | null>(null);
+  const [sideImage, setSideImage] = useState<string | null>(null);
+  const [suggestedStyles, setSuggestedStyles] = useState<string[]>([]);
+  const [analysisResult, setAnalysisResult] = useState<string | null>(null);
+  const [generatedImages, setGeneratedImages] = useState<(string | null)[]>(new Array(12).fill(null));
+  const [isGeneratingImages, setIsGeneratingImages] = useState<boolean[]>(new Array(12).fill(false));
+  const [activeAngle, setActiveAngle] = useState<'front' | 'side' | 'threeQuarter'>('front');
+  const [activeColor, setActiveColor] = useState<string | undefined>(undefined);
+  const [activeHighlights, setActiveHighlights] = useState<string | undefined>(undefined);
+  const [activeLighting, setActiveLighting] = useState<string>('Natural');
+  
+  const [selectedImageForModal, setSelectedImageForModal] = useState<{url: string, caption: string} | null>(null);
+  const [isSavingResults, setIsSavingResults] = useState(false);
+
+  const unsubscribeBookingsRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(async (user) => {
+        if (user) {
+            handleUserSession(user);
+        } else {
+            setCurrentUser(null);
+            setScreen('home');
+            setIsInitializing(false);
+        }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleUserSession = async (user: any) => {
+    console.log("Iniciando handleUserSession para:", user.id);
+    try {
+        console.log("Intentando obtener barbería del usuario...");
+        let shop = await getShopForUser(user.id);
+        console.log("Barbería obtenida:", shop);
+        
+        // Si el usuario no tiene una barbería aún (nuevo registro), creamos una por defecto
+        if (!shop && user.role === 'shopOwner') {
+            console.log("Creando barbería por defecto para shopOwner...");
+            const userName = user.name;
+            const res = await createDefaultShopForUser(user.id, userName);
+            shop = res.data;
+            console.log("Barbería por defecto creada:", shop);
+        }
+
+        const mappedUser: AppUser = {
+            id: user.id,
+            name: user.name || 'Usuario',
+            role: user.role || 'customer',
+            avatarUrl: user.avatarUrl || '',
+            shopId: shop?.id
+        };
+
+        if (mappedUser.role === 'platformAdmin') {
+            const allShops = await getAllShops();
+            setShops(allShops);
+            if (allShops.length > 0) {
+                setActiveShopId(allShops[0].id);
+            }
+            setActiveView('platformAdmin');
+        } else {
+            if (shop) {
+                setShops([shop]);
+                setActiveShopId(shop.id);
+            }
+            setActiveView('admin');
+        }
+        setCurrentUser(mappedUser);
+        setScreen('app');
+        console.log("Sesión de usuario manejada con éxito.");
+    } catch (e) {
+        console.error("Error detallado al manejar la sesión de usuario:", e);
+    } finally {
+        setIsInitializing(false);
+    }
+  };
+
+  useEffect(() => {
+    const shopId = shops[0]?.id;
+    if (currentUser && shopId && screen === 'app') {
+      if (unsubscribeBookingsRef.current) unsubscribeBookingsRef.current();
+      const unsubscribe = subscribeToBookings(shopId, (updatedBookings) => setBookings(updatedBookings));
+      unsubscribeBookingsRef.current = unsubscribe;
+    }
+    return () => { if (unsubscribeBookingsRef.current) unsubscribeBookingsRef.current(); };
+  }, [currentUser?.id, shops[0]?.id, screen]);
+
+  const [isAiLoading, setIsAiLoading] = useState(false);
+
+  const handleSendMessage = async (text: string) => {
+    if (!text.trim()) return;
+
+    const userMsg: Message = {
+        id: Date.now().toString(),
+        role: 'user',
+        parts: [{ text }],
+        timestamp: new Date()
+    };
+
+    setMessages(prev => [...prev, userMsg]);
+    setIsAiLoading(true);
+
+    try {
+        const history = messages.map(m => ({
+            role: m.role,
+            parts: m.parts
+        }));
+
+        const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                message: text,
+                history: history,
+                shop: currentShop
+            })
+        });
+
+        const data = await response.json();
+        
+        const aiMsg: Message = {
+            id: (Date.now() + 1).toString(),
+            role: 'model',
+            parts: [{ text: data.text || 'Lo siento, hubo un error.' }],
+            timestamp: new Date()
+        };
+
+        setMessages(prev => [...prev, aiMsg]);
+    } catch (e) {
+        console.warn("Using smart offline mock assistant fallback:", e);
+        
+        const normalizedMsg = text.toLowerCase();
+        let fallbackText = `¡Excelente pregunta! Como estilista master de ${currentShop.name}, te recomiendo siempre cuidar la hidratación de tu cabello. Si quieres que analice tus facciones detalladamente para recomendarte el mejor estilo, ve a 'Espejo Virtual' y sube tus fotos de frente y perfil. O si prefieres reservar, ve a 'Agendar Cita'. ¿Hay algo específico sobre estilismo en lo que te gustaría que te asesore?`;
+        
+        if (normalizedMsg.includes("hola") || normalizedMsg.includes("buenos dias") || normalizedMsg.includes("buenas tardes")) {
+            fallbackText = `¡Hola! Bienvenido/a a ${currentShop.name}. Soy ${currentShop.aiName || "tu Asistente AI"}, tu estilista de inteligencia artificial personal. ¿Listo para encontrar tu próximo gran look hoy? Podemos analizar tu rostro en el 'Espejo Virtual' o agendar una cita directa.`;
+        } else if (normalizedMsg.includes("precio") || normalizedMsg.includes("costo") || normalizedMsg.includes("servicio") || normalizedMsg.includes("cuanto cuesta")) {
+            fallbackText = `En ${currentShop.name} ofrecemos servicios premium a precios justos:\n\n` + 
+                currentShop.services.map(s => `- **${s.name}**: ${s.price}`).join("\n") + 
+                `\n\nPuedes consultar todos los detalles en la pestaña 'Perfil de la Barbería' en el menú lateral.`;
+        } else if (normalizedMsg.includes("cortar") || normalizedMsg.includes("corte") || normalizedMsg.includes("estilo") || normalizedMsg.includes("peinado") || normalizedMsg.includes("look")) {
+            fallbackText = `Para recomendarte el estilo perfecto, diseñamos el 'Espejo Virtual'. Sube una foto de frente y otra de perfil, y haré un análisis de visagismo completo recomendando 4 cortes ideales. ¡Pruébalo en la sección 'Espejo Virtual'!`;
+        } else if (normalizedMsg.includes("cita") || normalizedMsg.includes("reservar") || normalizedMsg.includes("turno") || normalizedMsg.includes("agendar")) {
+            fallbackText = `¡Excelente elección! Puedes reservar un turno al instante. Ve a la sección **'Agendar Cita'** de la barra lateral, elige tu servicio, fecha, hora disponible y tu barbero preferido. ¡Es rápido, cómodo y automático!`;
+        }
+
+        const mockAiMsg: Message = {
+            id: (Date.now() + 1).toString(),
+            role: 'model',
+            parts: [{ text: fallbackText }],
+            timestamp: new Date()
+        };
+        setMessages(prev => [...prev, mockAiMsg]);
+    } finally {
+        setIsAiLoading(false);
+    }
+  };
+
+  const currentShop = (activeShopId && shops.find(s => s.id === activeShopId)) || shops[0] || mockShops[0];
+
+  const handlePhotosReady = async (front: File, side: File) => {
+      setMirrorState('processing');
+      try {
+          const frontBase64 = await fileToBase64(front);
+          const sideBase64 = await fileToBase64(side);
+          
+          setFrontImage(frontBase64);
+          setSideImage(sideBase64);
+
+          const analysis = await getStyleRecommendations(
+              { inlineData: { mimeType: front.type, data: frontBase64.split(',')[1] } },
+              { inlineData: { mimeType: side.type, data: sideBase64.split(',')[1] } },
+              currentShop
+          );
+
+          setSuggestedStyles(analysis.styles);
+          setAnalysisResult(analysis.finalRecommendation);
+          setMirrorState('results');
+
+          for (let i = 0; i < analysis.styles.length; i++) {
+              triggerImageGeneration(i, analysis.styles[i], 'Frente', 'Natural', frontBase64);
+              await new Promise(r => setTimeout(r, 600)); 
+          }
+          
+      } catch (e) {
+          console.error(e);
+          setMirrorState('initial');
+          alert("Error en el análisis facial. Inténtalo de nuevo.");
+      }
+  };
+
+  const triggerImageGeneration = async (index: number, style: string, angle: string, lighting: string, imageOverride?: string, color?: string, highlights?: string) => {
+    setIsGeneratingImages(prev => {
+        const next = [...prev];
+        next[index] = true;
+        return next;
+    });
+
+    try {
+        const targetImage = imageOverride || (angle === 'Perfil' ? sideImage : frontImage);
+        if (!targetImage) return;
+
+        const result = await generateStyledImage(targetImage, 'image/jpeg', style, angle, lighting, color, highlights);
+        
+        setGeneratedImages(prev => {
+            const next = [...prev];
+            next[index] = result;
+            return next;
+        });
+    } catch (e) {
+        console.error("Error en la generación de imagen (slot " + index + "):", e);
+    } finally {
+        setIsGeneratingImages(prev => {
+            const next = [...prev];
+            next[index] = false;
+            return next;
+        });
+    }
+  };
+
+  const handleColorChange = (newColor: string) => {
+      const colorToSet = activeColor === newColor ? undefined : newColor;
+      setActiveColor(colorToSet);
+      regenerateVisibleBatch(colorToSet, activeHighlights);
+  };
+
+  const handleHighlightsChange = (newHighlights: string) => {
+      const highlightsToSet = activeHighlights === newHighlights ? undefined : newHighlights;
+      setActiveHighlights(highlightsToSet);
+      regenerateVisibleBatch(activeColor, highlightsToSet);
+  };
+
+  const regenerateVisibleBatch = (color?: string, highlights?: string) => {
+      const startIndex = activeAngle === 'front' ? 0 : activeAngle === 'side' ? 4 : 8;
+      const angleLabel = activeAngle === 'front' ? 'Frente' : activeAngle === 'side' ? 'Perfil' : 'Tres Cuartos';
+      
+      suggestedStyles.forEach((style, i) => {
+          triggerImageGeneration(startIndex + i, style, angleLabel, activeLighting, undefined, color, highlights);
+      });
+  };
+
+  const handleSaveResults = async () => {
+      if (isSavingResults) return;
+      const validImages = generatedImages.filter(img => img !== null) as string[];
+      if (validImages.length === 0) {
+          alert("Aún no se han generado imágenes para guardar.");
+          return;
+      }
+
+      setIsSavingResults(true);
+      try {
+          const uploadedUrls: string[] = [];
+          for (const base64 of validImages) {
+              const url = await uploadBase64Image(base64, currentShop.id, 'galery');
+              uploadedUrls.push(url);
+          }
+
+          const updatedGallery = [...currentShop.gallery, ...uploadedUrls];
+          const { error } = await updateShop(currentShop.id, { gallery: updatedGallery });
+          if (error) throw error;
+
+          const updatedShop = { ...currentShop, gallery: updatedGallery };
+          setShops([updatedShop]);
+          alert("¡Imágenes guardadas correctamente en la galería de tu barbería!");
+      } catch (e: any) {
+          console.error(e);
+          alert("Error al guardar en la base de datos: " + e.message);
+      } finally {
+          setIsSavingResults(false);
+      }
+  };
+
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = error => reject(error);
+    });
+  };
+
+  if (isInitializing) {
+    return (
+        <div className="h-screen flex flex-col items-center justify-center bg-slate-950 text-white p-6">
+            <div className="w-12 h-12 border-4 border-red-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p className="text-xl font-black mb-2 uppercase tracking-tighter text-white">Barber<span className="text-red-600"> AI</span></p>
+            <p className="text-slate-400 animate-pulse text-center font-bold uppercase text-[10px] tracking-widest">Sincronizando sesión...</p>
+        </div>
+    );
+  }
+
+  if (screen === 'home') return <HomeView onShowLogin={() => setScreen('login')} onGoHome={() => setScreen('home')} />;
+  if (screen === 'login') return <LoginView onLogin={() => {}} onGoHome={() => setScreen('home')} />;
+
+  return (
+    <div className="relative flex h-screen bg-slate-50 overflow-hidden">
+      {isSavingResults && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex flex-col items-center justify-center">
+              <div className="bg-white p-10 rounded-3xl shadow-2xl flex flex-col items-center">
+                  <div className="w-16 h-16 border-4 border-red-600 border-t-transparent rounded-full animate-spin mb-6"></div>
+                  <h3 className="text-xl font-black uppercase tracking-tight">Sincronizando Galería</h3>
+                  <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-2">Guardando resultados en la nube</p>
+              </div>
+          </div>
+      )}
+
+      <Sidebar 
+        currentUser={currentUser}
+        currentShop={currentShop}
+        shops={shops}
+        onSelectShop={(shop) => {
+            setActiveShopId(shop.id);
+            setActiveView('admin');
+        }}
+        onResetChat={() => setMessages([])}
+        activeView={activeView as any}
+        onNavigate={(v) => setActiveView(v as any)}
+        isOpen={isSidebarOpen}
+        setIsOpen={setIsSidebarOpen}
+        onLogout={async () => { await localLogout(); setScreen('home'); }}
+        onGoHome={() => setScreen('home')}
+      />
+      <div className="flex-1 flex flex-col">
+        <MainHeader title={activeView} onMenuClick={() => setIsSidebarOpen(true)} />
+        <main className="flex-1 overflow-y-auto">
+            {(activeView === 'admin' || activeView === 'platformAdmin') && (
+                <AdminView 
+                    currentUser={currentUser}
+                    currentShop={currentShop} 
+                    bookings={bookings} 
+                    shops={shops} 
+                    viewMode={activeView === 'platformAdmin' ? 'platform' : 'shop'}
+                    onSelectShop={(shop) => {
+                        setActiveShopId(shop.id);
+                        setActiveView('admin');
+                    }}
+                />
+            )}
+            {activeView === 'chat' && <ChatView messages={messages} isAiLoading={isAiLoading} onSendMessage={handleSendMessage} appState="initial" />}
+            {activeView === 'mirror' && (
+                <MirrorView 
+                    appState={mirrorState}
+                    isAiLoading={mirrorState === 'processing'}
+                    onPhotosReady={handlePhotosReady}
+                    currentShopName={currentShop.name}
+                    aiName={currentShop.aiName}
+                    frontUserImageUrl={frontImage}
+                    sideUserImageUrl={sideImage}
+                    generatedImages={generatedImages}
+                    suggestedStyles={suggestedStyles}
+                    analysisResult={analysisResult}
+                    isGeneratingImages={isGeneratingImages}
+                    activeAngle={activeAngle}
+                    plan={currentShop.plan}
+                    onAngleChange={(a) => {
+                        setActiveAngle(a);
+                        const angleLabel = a === 'front' ? 'Frente' : a === 'side' ? 'Perfil' : 'Tres Cuartos';
+                        const startIndex = a === 'front' ? 0 : a === 'side' ? 4 : 8;
+                        suggestedStyles.forEach((s, i) => triggerImageGeneration(startIndex + i, s, angleLabel, activeLighting, undefined, activeColor, activeHighlights));
+                    }}
+                    onLightingChange={(l) => {
+                        setActiveLighting(l);
+                        const startIndex = activeAngle === 'front' ? 0 : activeAngle === 'side' ? 4 : 8;
+                        const angleLabel = activeAngle === 'front' ? 'Frente' : activeAngle === 'side' ? 'Perfil' : 'Tres Cuartos';
+                        suggestedStyles.forEach((s, i) => triggerImageGeneration(startIndex + i, s, angleLabel, l, undefined, activeColor, activeHighlights));
+                    }}
+                    onColorChange={handleColorChange}
+                    onHighlightsChange={handleHighlightsChange}
+                    onRegenerateImage={(i) => triggerImageGeneration(i, suggestedStyles[i % 4], activeAngle === 'side' ? 'Perfil' : 'Frente', activeLighting, undefined, activeColor, activeHighlights)}
+                    onShare={handleSaveResults}
+                    onUploadNew={() => { setMirrorState('initial'); setFrontImage(null); setSideImage(null); }}
+                    onImageClick={(url, caption) => setSelectedImageForModal({url, caption})}
+                />
+            )}
+            {activeView === 'booking' && (
+                <BookingView 
+                    shop={currentShop} 
+                    userId={currentUser?.id || ''} 
+                    userEmail={currentUser?.name || ''} 
+                    onBookingConfirmed={() => setActiveView('bookingsList')} 
+                />
+            )}
+            {activeView === 'bookingsList' && <BookingsListView bookings={bookings} onNavigate={(v) => setActiveView(v as any)} />}
+            {activeView === 'shopProfile' && <ShopProfileView shop={currentShop} onUpdateProfile={(s) => setShops([s])} />}
+            {activeView === 'billing' && <BillingView shop={currentShop} onUpdatePlan={() => {}} onUpdatePaymentMethod={() => {}} />}
+        </main>
+      </div>
+      {selectedImageForModal && (
+          <ImageModal 
+            imageUrl={selectedImageForModal.url} 
+            caption={selectedImageForModal.caption} 
+            onClose={() => setSelectedImageForModal(null)} 
+          />
+      )}
+    </div>
+  );
+};
+
+export default App;

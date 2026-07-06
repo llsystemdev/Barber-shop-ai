@@ -1,0 +1,37 @@
+{
+  "name": "barber-shop-ai-backend",
+  "version": "1.0.0",
+  "description": "Backend server for Barber Shop AI using Google Gemini",
+  "main": "server/index.ts",
+  "type": "module",
+  "scripts": {
+    "start": "node dist/server.cjs",
+    "dev": "tsx server/index.ts",
+    "build": "vite build && esbuild server/index.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@google/genai": "latest",
+    "@tailwindcss/vite": "^4.2.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.12.12",
+    "@types/react": "^18.3.2",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.19",
+    "esbuild": "^0.28.1",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^4.2.1",
+    "tsx": "^4.10.0",
+    "typescript": "^5.4.5",
+    "vite": "^5.2.0"
+  }
+}
