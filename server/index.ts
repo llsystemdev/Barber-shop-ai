@@ -28,9 +28,9 @@ async function startServer() {
 
     // Initialize Gemini Client safely
     let ai: any = null;
-    const apiKey = process.env.API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
     if (!apiKey) {
-        console.warn("WARNING: API_KEY is not set in environment variables.");
+        console.warn("WARNING: GEMINI_API_KEY or API_KEY is not set in environment variables.");
     } else {
         try {
             ai = new GoogleGenAI({ apiKey });

@@ -2,7 +2,7 @@
   "name": "barber-shop-ai-backend",
   "version": "1.0.0",
   "description": "Backend server for Barber Shop AI using Google Gemini",
-  "main": "server/index.ts",
+  "main": "dist/server.cjs",
   "type": "module",
   "scripts": {
     "start": "node dist/server.cjs",

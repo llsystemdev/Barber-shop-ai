@@ -35,6 +35,9 @@ export async function getDb(): Promise<DatabaseSchema> {
   }
 
   try {
+    const dir = path.dirname(DB_FILE);
+    await fs.mkdir(dir, { recursive: true });
+
     const data = await fs.readFile(DB_FILE, 'utf-8');
     dbInstance = JSON.parse(data);
     return dbInstance!;
@@ -87,6 +90,9 @@ export async function saveDb(): Promise<void> {
   writePromise = writePromise.then(async () => {
     const tempFile = `${DB_FILE}.tmp`;
     try {
+      const dir = path.dirname(DB_FILE);
+      await fs.mkdir(dir, { recursive: true });
+
       const dataString = JSON.stringify(dbInstance, null, 2);
       await fs.writeFile(tempFile, dataString, 'utf-8');
       await fs.rename(tempFile, DB_FILE);
