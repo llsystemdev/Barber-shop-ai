@@ -11,6 +11,8 @@ const HomeView: React.FC<HomeViewProps> = ({ onShowLogin, onGoHome }) => {
   const [itemIndex, setItemIndex] = useState(0);
   const [isYearly, setIsYearly] = useState(false);
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
+  const [isTermsOpen, setIsTermsOpen] = useState(false);
+  const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
 
   const featuredItems = [
     {
@@ -403,7 +405,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onShowLogin, onGoHome }) => {
                 "100 Análisis de IA / mes",
                 "Espejo Virtual avanzado (Frente + Perfil)",
                 "Hasta 3 Estilistas en equipo",
-                "Confirmaciones por WhatsApp Mock",
+                "Confirmaciones por WhatsApp",
                 "Soporte técnico por correo"
               ]}
               onCtaClick={onShowLogin}
@@ -482,9 +484,9 @@ const HomeView: React.FC<HomeViewProps> = ({ onShowLogin, onGoHome }) => {
           <div>
             <h4 className="text-xs font-black text-white uppercase tracking-widest mb-4">Legal</h4>
             <ul className="space-y-2 text-xs text-slate-400 font-semibold">
-              <li><span className="cursor-not-allowed opacity-50">Términos de Servicio</span></li>
-              <li><span className="cursor-not-allowed opacity-50">Política de Privacidad</span></li>
-              <li><span className="cursor-not-allowed opacity-50">SLA de IA Offline</span></li>
+              <li><button onClick={() => setIsTermsOpen(true)} className="hover:text-red-500 transition-colors text-left focus:outline-none">Términos de Servicio</button></li>
+              <li><button onClick={() => setIsPrivacyOpen(true)} className="hover:text-red-500 transition-colors text-left focus:outline-none">Política de Privacidad</button></li>
+              <li><span className="opacity-50">SLA de Servicio IA</span></li>
             </ul>
           </div>
           <div>
@@ -492,7 +494,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onShowLogin, onGoHome }) => {
             <ul className="space-y-2 text-xs text-slate-400 font-semibold">
               <li><span className="text-slate-300">L&L Dev System</span></li>
               <li><span className="text-slate-500">Ing. Luis A. Mañon Z.</span></li>
-              <li className="text-[10px] text-red-500 font-bold uppercase tracking-wider">MOCK PLATFORM - 100% OFFLINE</li>
+              <li className="text-[10px] text-emerald-500 font-bold uppercase tracking-wider">PLATAFORMA INTEGRADA DE IA ACTIVA</li>
             </ul>
           </div>
         </div>
@@ -508,6 +510,91 @@ const HomeView: React.FC<HomeViewProps> = ({ onShowLogin, onGoHome }) => {
           </div>
         </div>
       </footer>
+
+      {/* Términos de Servicio Modal */}
+      {isTermsOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[150] flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full max-h-[80vh] flex flex-col shadow-2xl">
+            <div className="p-6 border-b border-slate-800 flex justify-between items-center">
+              <h3 className="text-lg font-black uppercase tracking-tight text-white">Términos de Servicio</h3>
+              <button 
+                onClick={() => setIsTermsOpen(false)}
+                className="text-slate-400 hover:text-white font-bold text-lg"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto text-xs text-slate-300 space-y-4 leading-relaxed font-medium">
+              <p className="font-bold text-white text-sm">Última actualización: Julio 2026</p>
+              <p>Bienvenido a Barber Shop AI. Al acceder o utilizar nuestra plataforma, usted acepta estar sujeto a estos Términos de Servicio.</p>
+              
+              <h4 className="text-white font-black uppercase tracking-wider text-xs">1. Descripción del Servicio</h4>
+              <p>Barber Shop AI proporciona una plataforma SaaS que utiliza modelos de inteligencia artificial para realizar análisis de visagismo facial y previsualizaciones estéticas virtuales para barberías y salones de belleza, además de gestionar reservas y comunicaciones con clientes.</p>
+              
+              <h4 className="text-white font-black uppercase tracking-wider text-xs">2. Cuentas y Registro</h4>
+              <p>Para utilizar ciertas funciones, debe registrar una cuenta proporcionando datos verídicos y mantener la seguridad de sus credenciales. Usted es responsable de todas las actividades realizadas en su cuenta.</p>
+              
+              <h4 className="text-white font-black uppercase tracking-wider text-xs">3. Propiedad Intelectual y Contenido</h4>
+              <p>Las imágenes procesadas y análisis generados a través de nuestro "Espejo Virtual" se rigen bajo los derechos de uso del cliente. Barber Shop AI no reclama propiedad sobre las fotos cargadas por los usuarios, las cuales se procesan con el único fin de proveer las simulaciones de corte de cabello.</p>
+              
+              <h4 className="text-white font-black uppercase tracking-wider text-xs">4. Suscripciones y Pagos</h4>
+              <p>Los servicios premium están sujetos a planes de pago mensuales o anuales descritos en nuestra plataforma. Las cancelaciones se pueden realizar en cualquier momento desde el panel de facturación y surtirán efecto al finalizar el ciclo de facturación actual.</p>
+              
+              <h4 className="text-white font-black uppercase tracking-wider text-xs">5. Limitación de Responsabilidad</h4>
+              <p>Las previsualizaciones generadas por la IA son meramente ilustrativas y experimentales. El resultado final del corte o estilo de cabello real depende exclusivamente de la ejecución técnica del barbero o estilista profesional.</p>
+            </div>
+            <div className="p-6 border-t border-slate-800 flex justify-end">
+              <button 
+                onClick={() => setIsTermsOpen(false)}
+                className="bg-red-600 hover:bg-red-700 text-white font-black text-xs uppercase tracking-widest px-6 py-3 rounded-xl transition-all"
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Política de Privacidad Modal */}
+      {isPrivacyOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[150] flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full max-h-[80vh] flex flex-col shadow-2xl">
+            <div className="p-6 border-b border-slate-800 flex justify-between items-center">
+              <h3 className="text-lg font-black uppercase tracking-tight text-white">Política de Privacidad</h3>
+              <button 
+                onClick={() => setIsPrivacyOpen(false)}
+                className="text-slate-400 hover:text-white font-bold text-lg"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto text-xs text-slate-300 space-y-4 leading-relaxed font-medium">
+              <p className="font-bold text-white text-sm">Última actualización: Julio 2026</p>
+              <p>En Barber Shop AI, nos tomamos muy en serio la privacidad de sus datos. Esta Política describe cómo recopilamos, usamos y protegemos su información.</p>
+              
+              <h4 className="text-white font-black uppercase tracking-wider text-xs">1. Datos que Recopilamos</h4>
+              <p>Recopilamos datos de registro (nombre, correo electrónico), información de facturación procesada de forma segura por pasarelas externas, y las fotos del rostro cargadas temporalmente para ejecutar el análisis de visagismo en el Espejo Virtual.</p>
+              
+              <h4 className="text-white font-black uppercase tracking-wider text-xs">2. Procesamiento de Fotos Faciales</h4>
+              <p>Las fotografías cargadas para el análisis de estilo e inteligencia artificial se procesan de forma transitoria para generar las recomendaciones y visualizaciones de peinado. No vendemos, transferimos ni compartimos sus fotos con terceros no autorizados.</p>
+              
+              <h4 className="text-white font-black uppercase tracking-wider text-xs">3. Seguridad de la Información</h4>
+              <p>Implementamos medidas de encriptación SSL y almacenamiento seguro para evitar cualquier acceso no autorizado o alteración de sus datos de usuario y registros de citas.</p>
+              
+              <h4 className="text-white font-black uppercase tracking-wider text-xs">4. Sus Derechos</h4>
+              <p>Usted puede solicitar la eliminación de su cuenta, fotos cargadas o historial de reservas enviando una solicitud a nuestro equipo de soporte técnico en cualquier momento.</p>
+            </div>
+            <div className="p-6 border-t border-slate-800 flex justify-end">
+              <button 
+                onClick={() => setIsPrivacyOpen(false)}
+                className="bg-red-600 hover:bg-red-700 text-white font-black text-xs uppercase tracking-widest px-6 py-3 rounded-xl transition-all"
+              >
+                Aceptar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

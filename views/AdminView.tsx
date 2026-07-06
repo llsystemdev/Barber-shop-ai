@@ -254,11 +254,6 @@ const AdminView: React.FC<AdminViewProps> = ({ currentUser, currentShop, booking
       {/* Header Premium */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="relative">
-          {!hasRealData && (
-            <div className="absolute -top-6 left-0 bg-amber-100 text-amber-700 px-3 py-0.5 rounded-full border border-amber-200 text-[8px] font-black uppercase tracking-widest animate-pulse">
-              ⚠️ Modo Simulación (Sin datos reales)
-            </div>
-          )}
           <h1 className="text-4xl font-black text-slate-950 uppercase tracking-tighter leading-none mb-3">
             Panel Central <span className="text-red-600 italic">Barber AI</span>
           </h1>
@@ -270,8 +265,8 @@ const AdminView: React.FC<AdminViewProps> = ({ currentUser, currentShop, booking
           <span className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500">
             Hoy: {new Date().toLocaleDateString()}
           </span>
-          <span className={`px-4 py-2 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg ${hasRealData ? 'bg-red-600 shadow-red-200' : 'bg-slate-400 shadow-slate-200'}`}>
-            {hasRealData ? 'En Línea' : 'Demo'}
+          <span className="px-4 py-2 text-white bg-red-600 shadow-red-200 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg">
+            En Línea
           </span>
         </div>
       </div>
