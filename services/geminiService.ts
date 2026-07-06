@@ -17,19 +17,40 @@ const coloredPhotos: { [key: string]: string } = {
 };
 
 export async function getStyleRecommendations(frontImage: any, sideImage: any, shop: BarberShop): Promise<{ styles: string[], finalRecommendation: string }> {
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            resolve({
-                styles: [
-                    "Modern Fade con Textura",
-                    "Classic Pompadour Modernizado",
-                    "Taper Fade con Flequillo Corto",
-                    "Low Fade con Textura Desordenada"
-                ],
-                finalRecommendation: `Basado en la estructura de tu rostro y el contorno de tus facciones, un corte con degradado (Fade) acentuará tu línea de la mandíbula aportando definición y carácter. Recomendamos usar cera mate (Clay) de fijación fuerte para peinar el cabello superior hacia adelante o hacia un lado para lograr el máximo dinamismo y textura.`
-            });
-        }, 1500); // realistic load time
-    });
+    try {
+        const response = await fetch('/api/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                frontImage: {
+                    mimeType: frontImage.inlineData?.mimeType || 'image/jpeg',
+                    data: frontImage.inlineData?.data || frontImage
+                },
+                sideImage: {
+                    mimeType: sideImage.inlineData?.mimeType || 'image/jpeg',
+                    data: sideImage.inlineData?.data || sideImage
+                },
+                shop
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Error al analizar la imagen en el servidor');
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error('getStyleRecommendations failed, falling back to mock:', error);
+        return {
+            styles: [
+                "Modern Fade con Textura",
+                "Classic Pompadour Modernizado",
+                "Taper Fade con Flequillo Corto",
+                "Low Fade con Textura Desordenada"
+            ],
+            finalRecommendation: `Basado en la estructura de tu rostro y el contorno de tus facciones, un corte con degradado (Fade) acentuará tu línea de la mandíbula aportando definición y carácter. Recomendamos usar cera mate (Clay) de fijación fuerte para peinar el cabello superior hacia adelante o hacia un lado para lograr el máximo dinamismo y textura.`
+        };
+    }
 }
 
 export async function generateStyledImage(
@@ -41,38 +62,84 @@ export async function generateStyledImage(
     color?: string,
     highlights?: string
 ): Promise<string> {
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            // Priority: if color is specified, return appropriate colored photo, else style photo
-            let resultUrl = stylePhotos[style] || stylePhotos.default;
-            if (color && coloredPhotos[color]) {
-                resultUrl = coloredPhotos[color];
-            } else if (highlights && coloredPhotos[highlights]) {
-                resultUrl = coloredPhotos[highlights];
-            }
-            resolve(resultUrl);
-        }, 1200);
-    });
+    try {
+        let type: 'style' | 'color' | 'highlights' = 'style';
+        let targetColor = '';
+
+        if (color) {
+            type = 'color';
+            targetColor = color;
+        } else if (highlights) {
+            type = 'highlights';
+            targetColor = highlights;
+        }
+
+        // Extract raw base64 data from Data URI
+        const rawBase64 = base64ImageData.includes(',') 
+            ? base64ImageData.split(',')[1] 
+            : base64ImageData;
+
+        const response = await fetch('/api/generate-image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                image: {
+                    data: rawBase64,
+                    mimeType: mimeType || 'image/jpeg'
+                },
+                style,
+                angle,
+                lighting,
+                type,
+                color: targetColor
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Error al generar la imagen estilizada en el servidor');
+        }
+
+        const data = await response.json();
+        return data.image; // returns base64 image or fallback image URL
+    } catch (error) {
+        console.error('generateStyledImage failed, falling back to mock:', error);
+        
+        // Priority: if color is specified, return appropriate colored photo, else style photo
+        let resultUrl = stylePhotos[style] || stylePhotos.default;
+        if (color && coloredPhotos[color]) {
+            resultUrl = coloredPhotos[color];
+        } else if (highlights && coloredPhotos[highlights]) {
+            resultUrl = coloredPhotos[highlights];
+        }
+        return resultUrl;
+    }
 }
 
 export async function getAvailableSlots(date: string, service: string, shop: BarberShop): Promise<string[]> {
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            resolve(["09:30", "10:15", "11:00", "12:30", "14:00", "15:15", "16:30", "17:15"]);
-        }, 800);
-    });
+    try {
+        const response = await fetch('/api/slots', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ date, service, shop })
+        });
+        if (!response.ok) throw new Error('Error al obtener horarios');
+        const data = await response.json();
+        return data.slots || [];
+    } catch (error) {
+        console.error('getAvailableSlots failed, falling back to mock:', error);
+        return ["09:30", "10:15", "11:00", "12:30", "14:00", "15:15", "16:30", "17:15"];
+    }
 }
 
 export async function sendBookingConfirmationEmail(email: string, booking: Omit<Booking, 'id'>): Promise<void> {
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            console.log("==================================================");
-            console.log("📧 MOCK EMAIL SENT");
-            console.log(`To: ${email}`);
-            console.log(`Subject: Confirmación de reserva - ${booking.shopName}`);
-            console.log(`Details: ${booking.service} on ${booking.date} at ${booking.time}`);
-            console.log("==================================================");
-            resolve();
-        }, 500);
-    });
+    try {
+        const response = await fetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, booking })
+        });
+        if (!response.ok) throw new Error('Error al enviar correo de confirmación');
+    } catch (error) {
+        console.error('sendBookingConfirmationEmail failed, falling back to mock:', error);
+    }
 }
