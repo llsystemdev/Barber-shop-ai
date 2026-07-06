@@ -145,9 +145,12 @@ const HomeView: React.FC<HomeViewProps> = ({ onShowLogin, onGoHome }) => {
       {/* Navbar Superior */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-slate-950/80 backdrop-blur-xl border-b border-slate-900 px-6 py-4">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <button onClick={onGoHome} className="flex items-center space-x-2 focus:outline-none focus:ring-2 focus:ring-red-500 rounded-lg">
-            <span className="text-xl md:text-2xl font-extrabold tracking-tight">
-              BARBER<span className="bg-gradient-to-r from-red-500 to-red-600 text-transparent bg-clip-text font-black italic">AI</span>
+          <button onClick={onGoHome} className="flex items-center space-x-2.5 group focus:outline-none focus:ring-2 focus:ring-red-500 rounded-xl px-1 py-0.5 transition-all">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center font-black text-white tracking-tighter text-base shadow-md shadow-red-600/30 group-hover:scale-105 transition-transform duration-200">
+              B
+            </div>
+            <span className="text-xl md:text-2xl font-black tracking-widest text-white uppercase transition-colors duration-200">
+              BARBER<span className="text-red-500 italic font-extrabold group-hover:text-white transition-colors duration-200">AI</span>
             </span>
           </button>
           

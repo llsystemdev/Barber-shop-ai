@@ -85,11 +85,13 @@ const Sidebar: React.FC<SidebarProps> = ({
       `}
     >
       <div className="flex justify-between items-center mb-8 px-2">
-        <button onClick={onGoHome} className="text-left focus:outline-none focus:ring-2 focus:ring-red-500 rounded-lg">
-            <h1 className="text-2xl font-black tracking-tighter text-white uppercase">
-            Barber
-            <span className="text-red-600"> AI</span>
-            </h1>
+        <button onClick={onGoHome} className="flex items-center space-x-2.5 group focus:outline-none focus:ring-2 focus:ring-red-500 rounded-xl px-1 py-0.5 transition-all">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center font-black text-white tracking-tighter text-base shadow-md shadow-red-600/30 group-hover:scale-105 transition-transform duration-200">
+            B
+          </div>
+          <span className="text-xl font-black tracking-widest text-white uppercase transition-colors duration-200">
+            BARBER<span className="text-red-500 italic font-extrabold group-hover:text-white transition-colors duration-200">AI</span>
+          </span>
         </button>
         <button 
             onClick={() => setIsOpen(false)} 
