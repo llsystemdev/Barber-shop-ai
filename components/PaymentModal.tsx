@@ -10,33 +10,77 @@ interface PaymentModalProps {
   context: ModalContext;
   currentPlan: PlanName;
   onSuccess: (newPlan?: PlanName, newPaymentMethod?: PaymentMethod) => void;
+  shopId?: string;
 }
 
 const plansInfo = {
   'Freemium': { price: '$0', priceNum: 0 },
-  'Básico': { price: '$1.99', priceNum: 1.99 },
-  'Profesional': { price: '$9.99', priceNum: 9.99 },
+  'Básico': { price: '$19', priceNum: 19 },
+  'Profesional': { price: '$49', priceNum: 49 },
 };
 
-const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, context, currentPlan, onSuccess }) => {
+const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, context, currentPlan, onSuccess, shopId }) => {
   const [isSuccess, setIsSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isYearly, setIsYearly] = useState(false);
 
   const { type, plan: newPlan } = context || {};
   const isChangingPlan = type === 'changePlan' && newPlan && newPlan !== currentPlan;
 
   if (!isOpen || !context) return null;
 
-  const handleConfirm = () => {
-    setIsLoading(true);
-    // Simulate a brief processing time
-    setTimeout(() => {
-      setIsLoading(false);
-      setIsSuccess(true);
+  const displayPrice = isChangingPlan 
+    ? (isYearly ? `$${newPlan === 'Básico' ? '15' : '39'} / mes (facturado anualmente)` : plansInfo[newPlan!].price + ' / mes') 
+    : '';
+
+  const handleConfirm = async () => {
+    if (isChangingPlan) {
+      setIsLoading(true);
+      try {
+        const response = await fetch('/api/stripe/create-checkout-session', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            plan: newPlan,
+            isYearly,
+            shopId: shopId || '1'
+          })
+        });
+
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.error || 'Error al iniciar Stripe Checkout');
+        }
+
+        const data = await response.json();
+        if (data.url) {
+          // Redirigir la ventana más externa para evitar bloqueos por iframe
+          if (window.top) {
+            window.top.location.href = data.url;
+          } else {
+            window.location.href = data.url;
+          }
+        } else {
+          throw new Error('No se recibió la URL de redirección');
+        }
+      } catch (err: any) {
+        console.error('Stripe redirect failed:', err);
+        alert('Ocurrió un error al contactar a la pasarela de Stripe: ' + err.message);
+        setIsLoading(false);
+      }
+    } else {
+      setIsLoading(true);
+      // Simular procesamiento para actualización básica de tarjeta
       setTimeout(() => {
-        onSuccess(newPlan, { type: 'Visa', last4: '4242', expiry: '12/26' });
-      }, 2000);
-    }, 1500);
+        setIsLoading(false);
+        setIsSuccess(true);
+        setTimeout(() => {
+          onSuccess(newPlan, { type: 'Visa', last4: '4242', expiry: '12/26' });
+        }, 2000);
+      }, 1500);
+    }
   };
 
   return (
@@ -48,7 +92,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, context, c
                 {isChangingPlan ? `Plan ${newPlan}` : 'Confirmar Datos'}
             </h3>
             <p className="text-slate-500 font-bold text-xs uppercase tracking-widest mb-8">
-                {isChangingPlan ? `Monto a facturar: ${plansInfo[newPlan!].price}` : 'Actualiza tus credenciales'}
+                {isChangingPlan ? `Monto a facturar: ${displayPrice}` : 'Actualiza tus credenciales'}
             </p>
 
             {isSuccess ? (
@@ -61,13 +105,25 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, context, c
                 </div>
             ) : (
                 <div className="space-y-6">
-                    <div className="bg-slate-50 p-6 rounded-2xl border-2 border-slate-100">
+                    <div className="bg-slate-50 p-6 rounded-2xl border-2 border-slate-100 mb-4">
                         <p className="text-slate-600 font-bold text-sm leading-relaxed">
                             {isChangingPlan 
-                                ? `Estás a punto de cambiar al plan ${newPlan}. Se aplicarán los beneficios correspondientes de forma inmediata.`
+                                ? `Estás a punto de suscribirte al plan ${newPlan}. Te redirigiremos de forma segura a la pasarela oficial de Stripe para completar el pago.`
                                 : 'Confirma la actualización de tus datos de facturación para mantener tu cuenta activa.'}
                         </p>
                     </div>
+
+                    {isChangingPlan && (
+                        <div className="flex items-center justify-between p-4 bg-slate-50 border-2 border-slate-100 rounded-xl mb-4">
+                            <span className="text-xs font-black uppercase tracking-widest text-slate-700">Facturación Anual</span>
+                            <button
+                                onClick={() => setIsYearly(!isYearly)}
+                                className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors duration-300 ${isYearly ? 'bg-red-600' : 'bg-slate-300'}`}
+                            >
+                                <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ${isYearly ? 'translate-x-6' : ''}`}></div>
+                            </button>
+                        </div>
+                    )}
 
                     <button 
                         onClick={handleConfirm}
@@ -81,7 +137,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, context, c
                         {isLoading ? (
                             <>
                                 <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
-                                <span>Procesando...</span>
+                                <span>Redirigiendo a Stripe...</span>
                             </>
                         ) : (
                             <span>Confirmar {isChangingPlan ? 'Suscripción' : 'Actualización'}</span>
@@ -98,7 +154,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, context, c
             )}
             
             <p className="mt-8 text-center text-slate-400 text-[9px] font-bold uppercase tracking-widest">
-                Sistema de Facturación Interno • L&L Dev System
+                Pasarela Segura SSL operada por Stripe Inc.
             </p>
         </div>
     </div>

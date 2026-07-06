@@ -6,8 +6,24 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { getDb, saveDb, hashPassword, generateSalt } from './database';
+import Stripe from 'stripe';
 
 dotenv.config();
+
+let stripeClient: Stripe | null = null;
+
+function getStripe(): Stripe {
+    if (!stripeClient) {
+        const key = process.env.STRIPE_SECRET_KEY;
+        if (!key) {
+            throw new Error('STRIPE_SECRET_KEY is not defined in the environment variables');
+        }
+        stripeClient = new Stripe(key, {
+            apiVersion: '2023-10-16' as any,
+        });
+    }
+    return stripeClient;
+}
 
 async function startServer() {
     const app = express();
@@ -512,6 +528,70 @@ async function startServer() {
 
         } catch (error: any) {
             console.error('Error in /api/generate-image:', error);
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // --- Stripe Checkout Endpoints ---
+    app.post('/api/stripe/create-checkout-session', async (req, res) => {
+        try {
+            const { plan, isYearly, shopId } = req.body;
+            
+            // Map plan to pricing
+            let unitAmount = 0;
+            if (plan === 'Básico') {
+                unitAmount = isYearly ? 1500 : 1900; // $15 or $19 in cents
+            } else if (plan === 'Profesional') {
+                unitAmount = isYearly ? 3900 : 4900; // $39 or $49 in cents
+            } else {
+                return res.status(400).json({ error: 'Plan no válido para facturación' });
+            }
+
+            const stripe = getStripe();
+            
+            // Get original requester's host/referrer to redirect back
+            const referer = req.headers.referer || '';
+            let origin = req.headers.origin || '';
+            if (!origin && referer) {
+                try {
+                    const parsedUrl = new URL(referer);
+                    origin = `${parsedUrl.protocol}//${parsedUrl.host}`;
+                } catch (e) {
+                    origin = 'http://localhost:3000';
+                }
+            }
+            if (!origin) origin = 'http://localhost:3000';
+
+            console.log(`[Stripe] Creating checkout session for plan: ${plan}, amount: ${unitAmount}, origin: ${origin}`);
+
+            const session = await stripe.checkout.sessions.create({
+                payment_method_types: ['card'],
+                line_items: [
+                    {
+                        price_data: {
+                            currency: 'usd',
+                            product_data: {
+                                name: `Barber AI - Plan ${plan}`,
+                                description: plan === 'Básico' 
+                                    ? '50 Análisis de IA / mes, Espejo Virtual avanzado, Hasta 3 Barberos' 
+                                    : 'Análisis de IA ilimitados, Todas las funciones del Espejo Virtual, Barberos ilimitados',
+                            },
+                            unit_amount: unitAmount,
+                            recurring: {
+                                interval: isYearly ? 'year' : 'month',
+                            },
+                        },
+                        quantity: 1,
+                    },
+                ],
+                mode: 'subscription',
+                success_url: `${origin}/?stripe_status=success&plan=${encodeURIComponent(plan)}&shopId=${encodeURIComponent(shopId)}`,
+                cancel_url: `${origin}/?stripe_status=cancel`,
+            });
+
+            res.json({ url: session.url });
+        } catch (error: any) {
+            console.error('Error in /api/stripe/create-checkout-session:', error);
             res.status(500).json({ error: error.message });
         }
     });

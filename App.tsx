@@ -72,6 +72,41 @@ const App: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    const handleStripeCallback = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const stripeStatus = params.get('stripe_status');
+      const plan = params.get('plan');
+      const urlShopId = params.get('shopId');
+
+      if (stripeStatus === 'success' && plan && urlShopId) {
+        console.log(`[Stripe Callback] Plan: ${plan}, shopId: ${urlShopId}`);
+        try {
+          const { error } = await updateShop(urlShopId, { plan: plan as any });
+          if (error) throw error;
+
+          setShops(prev => prev.map(s => s.id === urlShopId ? { ...s, plan: plan as any } : s));
+          
+          alert(`🎉 ¡Suscripción activada con éxito! Tu barbería ahora cuenta con los beneficios del Plan ${plan}.`);
+          
+          window.history.replaceState({}, document.title, window.location.pathname);
+          setActiveView('billing');
+        } catch (e: any) {
+          console.error('[Stripe Callback Error]', e);
+          alert('Error al sincronizar tu suscripción: ' + e.message);
+        }
+      } else if (stripeStatus === 'cancel') {
+        alert('❌ El proceso de suscripción con Stripe fue cancelado.');
+        window.history.replaceState({}, document.title, window.location.pathname);
+        setActiveView('billing');
+      }
+    };
+
+    if (screen === 'app' && shops.length > 0) {
+      handleStripeCallback();
+    }
+  }, [screen, shops.length]);
+
   const handleUserSession = async (user: any) => {
     console.log("Iniciando handleUserSession para:", user.id);
     try {
@@ -315,6 +350,26 @@ const App: React.FC = () => {
       }
   };
 
+  const handleUpdatePlan = async (newPlan: any) => {
+    try {
+      const { error } = await updateShop(currentShop.id, { plan: newPlan });
+      if (error) throw error;
+      setShops(prevShops => prevShops.map(s => s.id === currentShop.id ? { ...s, plan: newPlan } : s));
+    } catch (err: any) {
+      alert("Error al actualizar el plan: " + err.message);
+    }
+  };
+
+  const handleUpdatePaymentMethod = async (newMethod: any) => {
+    try {
+      const { error } = await updateShop(currentShop.id, { paymentMethod: newMethod });
+      if (error) throw error;
+      setShops(prevShops => prevShops.map(s => s.id === currentShop.id ? { ...s, paymentMethod: newMethod } : s));
+    } catch (err: any) {
+      alert("Error al actualizar el método de pago: " + err.message);
+    }
+  };
+
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -427,7 +482,7 @@ const App: React.FC = () => {
             )}
             {activeView === 'bookingsList' && <BookingsListView bookings={bookings} onNavigate={(v) => setActiveView(v as any)} />}
             {activeView === 'shopProfile' && <ShopProfileView shop={currentShop} onUpdateProfile={(s) => setShops([s])} />}
-            {activeView === 'billing' && <BillingView shop={currentShop} onUpdatePlan={() => {}} onUpdatePaymentMethod={() => {}} />}
+            {activeView === 'billing' && <BillingView shop={currentShop} onUpdatePlan={handleUpdatePlan} onUpdatePaymentMethod={handleUpdatePaymentMethod} />}
         </main>
       </div>
       {selectedImageForModal && (

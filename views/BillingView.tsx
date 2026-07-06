@@ -20,14 +20,14 @@ const plans: { [key in PlanName]: { price: string; features: string[]; color: st
     button: 'bg-slate-500'
   },
   'Básico': {
-    price: '$1.99',
+    price: '$19/mes',
     features: ['50 Análisis de IA / mes', 'Espejo Virtual avanzado (colores)', 'Hasta 3 Barberos', 'Soporte prioritario'],
     color: 'bg-amber-50',
     border: 'border-amber-200',
     button: 'bg-amber-600'
   },
   'Profesional': {
-    price: '$9.99',
+    price: '$49/mes',
     features: ['Análisis de IA ilimitados', 'Todas las funciones del Espejo Virtual', 'Barberos ilimitados', 'Soporte 24/7'],
     color: 'bg-red-50',
     border: 'border-red-200',
@@ -82,6 +82,7 @@ const BillingView: React.FC<BillingViewProps> = ({ shop, onUpdatePlan, onUpdateP
         context={modalContext}
         onSuccess={handlePaymentSuccess}
         currentPlan={shop.plan}
+        shopId={shop.id}
       />
       <div className="w-full h-full bg-slate-50 overflow-y-auto p-6 lg:p-10">
         <div className="max-w-6xl mx-auto">
