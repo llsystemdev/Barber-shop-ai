@@ -17,6 +17,7 @@ interface SidebarProps {
   setIsOpen: (isOpen: boolean) => void;
   onLogout: () => void;
   onGoHome: () => void;
+  onRegister?: () => void;
 }
 
 const NavItem: React.FC<{
@@ -50,8 +51,10 @@ const Sidebar: React.FC<SidebarProps> = ({
   setIsOpen,
   onLogout,
   onGoHome,
+  onRegister,
 }) => {
   const isPlatformAdmin = currentUser?.role === 'platformAdmin';
+  const isGuest = currentUser?.isGuest === true;
 
   const shopOwnerNav = [
     { view: 'admin', label: 'Dashboard Barbería', icon: <DashboardIcon className="w-6 h-6" /> },
@@ -63,16 +66,23 @@ const Sidebar: React.FC<SidebarProps> = ({
     { view: 'billing', label: 'Facturación y Plan', icon: <BillingIcon className="w-6 h-6" /> },
   ] as const;
 
+  const guestNav = [
+    { view: 'mirror', label: 'Espejo Virtual', icon: <MirrorIcon className="w-6 h-6" /> },
+    { view: 'chat', label: 'Chat de Estilismo', icon: <ChatIcon className="w-6 h-6" /> },
+  ] as const;
+
   const platformAdminNav = [
     { view: 'platformAdmin', label: 'Dashboard Plataforma', icon: <BriefcaseIcon className="w-6 h-6" /> },
   ] as const;
 
-  const navItems = isPlatformAdmin 
-    ? [
-        ...platformAdminNav,
-        ...shopOwnerNav
-      ]
-    : shopOwnerNav;
+  const navItems = isGuest
+    ? guestNav
+    : isPlatformAdmin 
+      ? [
+          ...platformAdminNav,
+          ...shopOwnerNav
+        ]
+      : shopOwnerNav;
 
   return (
     <aside
@@ -153,13 +163,22 @@ const Sidebar: React.FC<SidebarProps> = ({
         )}
         
         {currentUser && (
-          <button
-            onClick={onLogout}
-            className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left text-slate-400 hover:bg-red-950 hover:text-red-400 font-bold transition-all"
-          >
-            <LogoutIcon className="w-6 h-6" />
-            <span>Cerrar Sesión</span>
-          </button>
+          isGuest ? (
+            <button
+              onClick={onRegister}
+              className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-black py-3.5 px-4 rounded-xl shadow-lg shadow-red-600/25 transition-all text-xs uppercase tracking-wider active:scale-95"
+            >
+              <span>Crear Cuenta Gratis</span>
+            </button>
+          ) : (
+            <button
+              onClick={onLogout}
+              className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left text-slate-400 hover:bg-red-950 hover:text-red-400 font-bold transition-all"
+            >
+              <LogoutIcon className="w-6 h-6" />
+              <span>Cerrar Sesión</span>
+            </button>
+          )
         )}
         
         <footer className="pt-4 text-center text-[10px] text-slate-500 uppercase tracking-widest font-medium">

@@ -5,9 +5,10 @@ import { MirrorIcon, ChatIcon, CalendarIcon, DashboardIcon } from '../assets/ico
 interface HomeViewProps {
   onShowLogin: () => void;
   onGoHome: () => void;
+  onStartGuestMode: () => void;
 }
 
-const HomeView: React.FC<HomeViewProps> = ({ onShowLogin, onGoHome }) => {
+const HomeView: React.FC<HomeViewProps> = ({ onShowLogin, onGoHome, onStartGuestMode }) => {
   const [itemIndex, setItemIndex] = useState(0);
   const [isYearly, setIsYearly] = useState(false);
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
@@ -195,10 +196,10 @@ const HomeView: React.FC<HomeViewProps> = ({ onShowLogin, onGoHome }) => {
             <div className="pt-4 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
               <button 
                 id="btn_free_trial"
-                onClick={onShowLogin} 
+                onClick={onStartGuestMode} 
                 className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-8 rounded-2xl text-base transition-all transform hover:scale-[1.02] shadow-xl shadow-red-600/25 active:scale-[0.98]"
               >
-                Comienza tu Prueba Gratis
+                Probar Espejo Virtual Gratis
               </button>
               <a 
                 href="#beneficios" 

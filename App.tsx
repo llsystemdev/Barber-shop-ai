@@ -10,7 +10,7 @@ import {
     updateShop,
     getAllShops
 } from './services/barberShopService';
-import { onAuthStateChanged, logoutUser as localLogout } from './services/authService';
+import { onAuthStateChanged, logoutUser as localLogout, loginWithGoogle } from './services/authService';
 
 import Sidebar from './components/Sidebar';
 import MainHeader from './components/MainHeader';
@@ -25,6 +25,9 @@ import LoginView from './views/LoginView';
 import MirrorView from './views/MirrorView';
 import { getStyleRecommendations, generateStyledImage } from './services/geminiService';
 import ImageModal from './components/ImageModal';
+import GuestLimitModal from './components/GuestLimitModal';
+import { SupportWidget } from './components/SupportWidget';
+import { GDPRBanner } from './components/GDPRBanner';
 
 type ActiveView = 'chat' | 'mirror' | 'booking' | 'bookingsList' | 'shopProfile' | 'billing' | 'admin' | 'platformAdmin';
 type Screen = 'home' | 'login' | 'app';
@@ -33,6 +36,11 @@ type MirrorState = 'initial' | 'processing' | 'results';
 const App: React.FC = () => {
   const [screen, setScreen] = useState<Screen>('home');
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
+  const [guestSimulationsCount, setGuestSimulationsCount] = useState<number>(() => {
+    const saved = localStorage.getItem('guest_simulations_count');
+    return saved ? parseInt(saved, 10) : 0;
+  });
+  const [showGuestLimitModal, setShowGuestLimitModal] = useState<boolean>(false);
   const [shops, setShops] = useState<BarberShop[]>(mockShops); 
   const [activeShopId, setActiveShopId] = useState<string | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -58,6 +66,20 @@ const App: React.FC = () => {
   const [isSavingResults, setIsSavingResults] = useState(false);
 
   const unsubscribeBookingsRef = useRef<(() => void) | null>(null);
+
+  const handleStartGuestMode = () => {
+    const guestUser: AppUser = {
+      id: 'guest_user',
+      name: 'Invitado',
+      role: 'customer',
+      avatarUrl: '',
+      isGuest: true,
+      shopId: shops[0]?.id
+    };
+    setCurrentUser(guestUser);
+    setActiveView('mirror');
+    setScreen('app');
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(async (user) => {
@@ -239,6 +261,12 @@ const App: React.FC = () => {
   const currentShop = (activeShopId && shops.find(s => s.id === activeShopId)) || shops[0] || mockShops[0];
 
   const handlePhotosReady = async (front: File, side: File) => {
+      if (currentUser?.isGuest) {
+          if (guestSimulationsCount >= 3) {
+              setShowGuestLimitModal(true);
+              return;
+          }
+      }
       setMirrorState('processing');
       try {
           const frontBase64 = await fileToBase64(front);
@@ -256,6 +284,23 @@ const App: React.FC = () => {
           setSuggestedStyles(analysis.styles);
           setAnalysisResult(analysis.finalRecommendation);
           setMirrorState('results');
+
+          if (currentUser?.isGuest) {
+              const nextCount = guestSimulationsCount + 1;
+              setGuestSimulationsCount(nextCount);
+              localStorage.setItem('guest_simulations_count', nextCount.toString());
+              if (nextCount >= 3) {
+                  // After completing their 3rd simulation, trigger the sign up modal to show.
+                  // We can let them view the result but show the signup overlay on top,
+                  // or prompt them directly once results are loaded.
+                  // Let's set a small timeout or wait a bit so they see the result starting, then trigger!
+                  // Or simply let them view the result, but when they close or click next, show it.
+                  // Actually, showing it right after results render (after images start generating) is extremely engaging!
+                  setTimeout(() => {
+                      setShowGuestLimitModal(true);
+                  }, 1500);
+              }
+          }
 
           for (let i = 0; i < analysis.styles.length; i++) {
               triggerImageGeneration(i, analysis.styles[i], 'Frente', 'Natural', frontBase64);
@@ -389,7 +434,7 @@ const App: React.FC = () => {
     );
   }
 
-  if (screen === 'home') return <HomeView onShowLogin={() => setScreen('login')} onGoHome={() => setScreen('home')} />;
+  if (screen === 'home') return <HomeView onShowLogin={() => setScreen('login')} onGoHome={() => setScreen('home')} onStartGuestMode={handleStartGuestMode} />;
   if (screen === 'login') return <LoginView onLogin={() => {}} onGoHome={() => setScreen('home')} />;
 
   return (
@@ -418,7 +463,8 @@ const App: React.FC = () => {
         isOpen={isSidebarOpen}
         setIsOpen={setIsSidebarOpen}
         onLogout={async () => { await localLogout(); setScreen('home'); }}
-        onGoHome={() => setScreen('home')}
+        onGoHome={() => { setCurrentUser(null); setScreen('home'); }}
+        onRegister={() => { setCurrentUser(null); setScreen('login'); }}
       />
       <div className="flex-1 flex flex-col">
         <MainHeader title={activeView} onMenuClick={() => setIsSidebarOpen(true)} />
@@ -470,6 +516,8 @@ const App: React.FC = () => {
                     onShare={handleSaveResults}
                     onUploadNew={() => { setMirrorState('initial'); setFrontImage(null); setSideImage(null); }}
                     onImageClick={(url, caption) => setSelectedImageForModal({url, caption})}
+                    isGuest={currentUser?.isGuest}
+                    simulationsCount={guestSimulationsCount}
                 />
             )}
             {activeView === 'booking' && (
@@ -492,6 +540,31 @@ const App: React.FC = () => {
             onClose={() => setSelectedImageForModal(null)} 
           />
       )}
+      <GuestLimitModal 
+        isOpen={showGuestLimitModal}
+        onClose={() => {
+          setShowGuestLimitModal(false);
+          setCurrentUser(null);
+          setScreen('home');
+        }}
+        onContinueGoogle={async () => {
+          setShowGuestLimitModal(false);
+          localStorage.setItem('userRole', 'shopOwner');
+          try {
+            const { error } = await loginWithGoogle();
+            if (error) throw error;
+          } catch (e: any) {
+            alert("Error al ingresar con Google: " + e.message);
+          }
+        }}
+        onContinueEmail={() => {
+          setShowGuestLimitModal(false);
+          setCurrentUser(null);
+          setScreen('login');
+        }}
+      />
+      <SupportWidget />
+      <GDPRBanner />
     </div>
   );
 };

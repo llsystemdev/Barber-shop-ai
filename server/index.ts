@@ -9,6 +9,12 @@ import { createServer as createViteServer } from 'vite';
 import { getDb, saveDb, hashPassword, generateSalt } from './database';
 import Stripe from 'stripe';
 
+// Enterprise Layer Imports
+import { securityHeaders, sanitizeInput, rateLimiter, validateImageUpload } from './security';
+import { logAuditEvent, detectAnomalies } from './audit';
+import { getAllTickets, createTicket, addTicketMessage, updateTicketStatus, knowledgeBase } from './support';
+import { saveUserConsent, getUserConsents, exportUserData, eraseUserData } from './compliance';
+
 dotenv.config();
 
 let stripeClient: Stripe | null = null;
@@ -30,6 +36,9 @@ async function startServer() {
     const app = express();
     const port = Number(process.env.PORT) || 3000;
 
+    // Enterprise Security Headers
+    app.use(securityHeaders);
+
     // Strip dynamic applet upload prefix from requests
     app.use((req, res, next) => {
         const match = req.url.match(/^\/upload\/[a-fA-F0-9-]{36}/);
@@ -42,6 +51,9 @@ async function startServer() {
     // Enable CORS and JSON body parsing (large limit for images)
     app.use(cors());
     app.use(express.json({ limit: '50mb' }) as any);
+    
+    // Enterprise Input Sanitization
+    app.use(sanitizeInput);
 
     // Initialize Gemini Client safely
     let ai: any = null;
@@ -102,7 +114,7 @@ async function startServer() {
     // --- Real Database Auth Endpoints ---
 
     // 1. Auth Register
-    app.post('/api/auth/register', async (req, res) => {
+    app.post('/api/auth/register', rateLimiter({ windowMs: 15 * 60 * 1000, max: 10, message: 'Demasiadas cuentas creadas desde esta IP. Intente de nuevo más tarde.' }), async (req, res) => {
         try {
             const { email, password, name, role } = req.body;
             if (!email || !password || !name) {
@@ -113,6 +125,7 @@ async function startServer() {
             const lowerEmail = email.toLowerCase();
             const existingUser = db.users.find(u => u.email?.toLowerCase() === lowerEmail);
             if (existingUser) {
+                await logAuditEvent('warn', 'REGISTRATION_ATTEMPT_DUPLICATE', `Intento de registro con email duplicado: ${lowerEmail}`, req.ip);
                 return res.status(400).json({ error: 'El email ya está registrado' });
             }
 
@@ -162,6 +175,8 @@ async function startServer() {
             db.users.push(newUser);
             await saveDb();
 
+            await logAuditEvent('success', 'USER_REGISTRATION', `Nuevo usuario registrado con éxito: ${lowerEmail} (${newUser.role})`, req.ip, lowerEmail);
+
             res.json({
                 user: {
                     id: newUser.id,
@@ -178,7 +193,7 @@ async function startServer() {
     });
 
     // 2. Auth Login
-    app.post('/api/auth/login', async (req, res) => {
+    app.post('/api/auth/login', rateLimiter({ windowMs: 10 * 60 * 1000, max: 10, message: 'Demasiados intentos de inicio de sesión. Intente más tarde.' }), async (req, res) => {
         try {
             const { email, password } = req.body;
             if (!email || !password) {
@@ -189,13 +204,17 @@ async function startServer() {
             const lowerEmail = email.toLowerCase();
             const user = db.users.find(u => u.email?.toLowerCase() === lowerEmail);
             if (!user || !user.passwordHash || !user.salt) {
+                await logAuditEvent('warn', 'AUTH_FAILURE', `Intento de login fallido para usuario inexistente: ${lowerEmail}`, req.ip);
                 return res.status(400).json({ error: 'Credenciales inválidas' });
             }
 
             const computedHash = hashPassword(password, user.salt);
             if (computedHash !== user.passwordHash) {
+                await logAuditEvent('warn', 'AUTH_FAILURE', `Contraseña incorrecta para usuario: ${lowerEmail}`, req.ip, lowerEmail);
                 return res.status(400).json({ error: 'Credenciales inválidas' });
             }
+
+            await logAuditEvent('success', 'AUTH_SUCCESS', `Inicio de sesión exitoso: ${lowerEmail}`, req.ip, lowerEmail);
 
             res.json({
                 user: {
@@ -821,6 +840,148 @@ async function startServer() {
             res.json({ success: true, message: "Email queued successfully" });
         } catch (error: any) {
             console.error('Error sending email:', error);
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // =========================================================================
+    // ENTERPRISE SAAS APIS (SECURITY, AUDITING, SUPPORT & GDPR COMPLIANCE)
+    // =========================================================================
+
+    // --- SECURITY & AUDITING ENDPOINTS ---
+
+    // Get all Audit Logs
+    app.get('/api/security/audit-logs', async (req, res) => {
+        try {
+            const db = await getDb();
+            res.json(db.securityLogs || []);
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // Detect anomalies in system activity
+    app.get('/api/security/anomalies', async (req, res) => {
+        try {
+            const anomalies = await detectAnomalies();
+            res.json(anomalies);
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // Clear Audit Logs (Simulated Rotation)
+    app.post('/api/security/logs/clear', async (req, res) => {
+        try {
+            const db = await getDb();
+            db.securityLogs = [];
+            await saveDb();
+            await logAuditEvent('info', 'LOGS_CLEARED', 'El administrador vació y rotó los registros de auditoría', req.ip, 'admin@virtus.com');
+            res.json({ success: true, message: 'Logs rotados exitosamente' });
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // --- SUPPORT CENTER ENDPOINTS ---
+
+    // Get support tickets (filtered optionally by shopId)
+    app.get('/api/support/tickets', async (req, res) => {
+        try {
+            const shopId = req.query.shopId as string;
+            const tickets = await getAllTickets(shopId);
+            res.json(tickets);
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // Create a new support ticket
+    app.post('/api/support/tickets', async (req, res) => {
+        try {
+            const ticket = await createTicket(req.body);
+            await logAuditEvent('info', 'SUPPORT_TICKET_CREATED', `Ticket creado por ${ticket.customerName}: ${ticket.subject}`, req.ip, ticket.email);
+            res.json(ticket);
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // Add message to existing ticket
+    app.post('/api/support/tickets/:id/messages', async (req, res) => {
+        try {
+            const { id } = req.params;
+            const { sender, text } = req.body;
+            const ticket = await addTicketMessage(id, sender, text);
+            await logAuditEvent('info', 'SUPPORT_MESSAGE_ADDED', `Mensaje enviado en Ticket ${id} por ${sender}`, req.ip, sender === 'admin' ? 'admin@virtus.com' : ticket.email);
+            res.json(ticket);
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // Update ticket status
+    app.patch('/api/support/tickets/:id/status', async (req, res) => {
+        try {
+            const { id } = req.params;
+            const { status } = req.body;
+            const ticket = await updateTicketStatus(id, status);
+            await logAuditEvent('info', 'SUPPORT_TICKET_STATUS_UPDATED', `Estado del Ticket ${id} cambiado a ${status}`, req.ip, 'admin@virtus.com');
+            res.json(ticket);
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // Get Knowledge Base FAQ articles
+    app.get('/api/support/kb', (req, res) => {
+        res.json(knowledgeBase);
+    });
+
+    // --- GDPR & COMPLIANCE ENDPOINTS ---
+
+    // Record GDPR consent log
+    app.post('/api/compliance/consent', async (req, res) => {
+        try {
+            const { userId, email, consentType, accepted } = req.body;
+            const consent = await saveUserConsent(userId || 'guest', email || 'anon@virtus.com', consentType, accepted, req.ip);
+            await logAuditEvent('info', 'CONSENT_RECORDED', `Consentimiento ${consentType} de ${email}: ${accepted ? 'Aceptado' : 'Rechazado'}`, req.ip, email);
+            res.json(consent);
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // Get consent log history
+    app.get('/api/compliance/consent/:email', async (req, res) => {
+        try {
+            const consents = await getUserConsents(req.params.email);
+            res.json(consents);
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // GDPR Right to Portability: Download full JSON footprint
+    app.post('/api/compliance/export', async (req, res) => {
+        try {
+            const { email } = req.body;
+            const data = await exportUserData(email);
+            await logAuditEvent('info', 'GDPR_DATA_EXPORT', `El usuario ${email} exportó todos sus datos (Art. 20 GDPR)`, req.ip, email);
+            res.json(data);
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // GDPR Right to be Forgotten: Permanently delete user from system
+    app.post('/api/compliance/forget', async (req, res) => {
+        try {
+            const { email } = req.body;
+            const result = await eraseUserData(email);
+            await logAuditEvent('critical', 'GDPR_RIGHT_TO_ERASURE', `Eliminación permanente de todos los datos de ${email} (Art. 17 GDPR)`, req.ip, email);
+            res.json(result);
+        } catch (error: any) {
             res.status(500).json({ error: error.message });
         }
     });

@@ -25,13 +25,22 @@ interface MirrorViewProps {
     onShare: () => void;
     onUploadNew: () => void;
     onImageClick: (url: string, caption: string) => void;
+    isGuest?: boolean;
+    simulationsCount?: number;
 }
 
 const MirrorView: React.FC<MirrorViewProps> = (props) => {
   return (
     <div className="w-full h-full flex flex-col bg-white overflow-hidden">
         <div className="flex-1 overflow-y-auto">
-        {props.appState === 'initial' && <PhotoUploader onPhotosReady={props.onPhotosReady} isProcessing={props.isAiLoading} />}
+        {props.appState === 'initial' && (
+          <PhotoUploader 
+            onPhotosReady={props.onPhotosReady} 
+            isProcessing={props.isAiLoading} 
+            isGuest={props.isGuest}
+            simulationsCount={props.simulationsCount}
+          />
+        )}
         {props.appState === 'processing' && (
             <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center">
                 <div className="w-24 h-24 mb-6 text-red-500 animate-spin">

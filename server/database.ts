@@ -10,6 +10,39 @@ export interface DatabaseSchema {
   users: Array<User & { passwordHash?: string; salt?: string; email?: string }>;
   shops: BarberShop[];
   bookings: Booking[];
+  securityLogs: Array<{
+    id: string;
+    time: string;
+    level: 'success' | 'info' | 'warn' | 'critical';
+    code: string;
+    message: string;
+    ip: string;
+    user?: string;
+    details?: any;
+  }>;
+  supportTickets: Array<{
+    id: string;
+    shopId?: string;
+    customerName: string;
+    email: string;
+    category: string;
+    priority: 'Baja' | 'Media' | 'Alta' | 'Crítica';
+    subject: string;
+    description: string;
+    status: 'Abierto' | 'En Progreso' | 'Resuelto' | 'Cerrado';
+    messages: Array<{ sender: 'customer' | 'admin'; text: string; time: string }>;
+    createdAt: string;
+  }>;
+  userConsents: Array<{
+    id: string;
+    userId: string;
+    email: string;
+    consentType: string;
+    accepted: boolean;
+    timestamp: string;
+    documentVersion: string;
+    ip: string;
+  }>;
 }
 
 // Initial Mock Data Fallbacks
@@ -39,8 +72,12 @@ export async function getDb(): Promise<DatabaseSchema> {
     await fs.mkdir(dir, { recursive: true });
 
     const data = await fs.readFile(DB_FILE, 'utf-8');
-    dbInstance = JSON.parse(data);
-    return dbInstance!;
+    const parsed = JSON.parse(data) as DatabaseSchema;
+    parsed.securityLogs = parsed.securityLogs || [];
+    parsed.supportTickets = parsed.supportTickets || [];
+    parsed.userConsents = parsed.userConsents || [];
+    dbInstance = parsed;
+    return dbInstance;
   } catch (error) {
     // If database file does not exist, initialize with mock data
     console.log('Database file not found or corrupted. Initializing with default mock data...');
@@ -71,10 +108,64 @@ export async function getDb(): Promise<DatabaseSchema> {
       }
     ];
 
+    const initialSecurityLogs = [
+      {
+        id: 'sec_log_1',
+        time: '2026-07-08T08:12:00Z',
+        level: 'success' as const,
+        code: 'AUTH_SUCCESS',
+        message: 'Inicio de sesión exitoso para admin@virtus.com',
+        ip: '192.168.1.50',
+        user: 'admin@virtus.com'
+      },
+      {
+        id: 'sec_log_2',
+        time: '2026-07-08T08:15:22Z',
+        level: 'warn' as const,
+        code: 'BRUTE_FORCE_PREVENTION',
+        message: 'Límite de intentos fallidos alcanzado para IP 185.220.101.5',
+        ip: '185.220.101.5'
+      }
+    ];
+
+    const initialSupportTickets = [
+      {
+        id: 'ticket_1',
+        shopId: '1',
+        customerName: 'Carlos Gómez',
+        email: 'carlos@example.com',
+        category: 'Facturación',
+        priority: 'Alta' as const,
+        subject: 'Doble cargo en suscripción',
+        description: 'Se me ha cobrado dos veces el plan Profesional de este mes.',
+        status: 'Abierto' as const,
+        messages: [
+          { sender: 'customer' as const, text: 'Hola, veo dos cobros de Stripe en mi banco.', time: '2026-07-08T09:00:00Z' }
+        ],
+        createdAt: '2026-07-08T09:00:00Z'
+      }
+    ];
+
+    const initialUserConsents = [
+      {
+        id: 'consent_1',
+        userId: 'mock-user-owner',
+        email: 'owner@virtus.com',
+        consentType: 'AI_FACIAL_ANALYSIS',
+        accepted: true,
+        timestamp: '2026-07-08T08:00:00Z',
+        documentVersion: 'v1.2',
+        ip: '192.168.1.50'
+      }
+    ];
+
     dbInstance = {
       users: initialUsers,
       shops: mockBarbershops,
-      bookings: mockBookings
+      bookings: mockBookings,
+      securityLogs: initialSecurityLogs,
+      supportTickets: initialSupportTickets,
+      userConsents: initialUserConsents
     };
 
     await saveDb();

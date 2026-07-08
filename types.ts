@@ -65,9 +65,10 @@ export interface Booking {
 export interface User {
   id: string;
   name: string;
-  role: 'platformAdmin' | 'shopOwner';
+  role: 'platformAdmin' | 'shopOwner' | 'customer';
   avatarUrl: string;
   shopId?: string; // Only for shopOwner
+  isGuest?: boolean; // Added for guest mode
 }
 
 

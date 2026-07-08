@@ -162,9 +162,11 @@ const PhotoSlot: React.FC<PhotoSlotProps> = ({ label, onFileSelect, icon, captur
 interface PhotoUploaderProps {
   onPhotosReady: (front: File, side: File) => void;
   isProcessing: boolean;
+  isGuest?: boolean;
+  simulationsCount?: number;
 }
 
-export const PhotoUploader: React.FC<PhotoUploaderProps> = ({ onPhotosReady, isProcessing }) => {
+export const PhotoUploader: React.FC<PhotoUploaderProps> = ({ onPhotosReady, isProcessing, isGuest, simulationsCount = 0 }) => {
   const [frontPhoto, setFrontPhoto] = useState<File | null>(null);
   const [sidePhoto, setSidePhoto] = useState<File | null>(null);
 
@@ -180,10 +182,19 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({ onPhotosReady, isP
     </svg>
   );
 
+  const remaining = Math.max(0, 3 - simulationsCount);
+
   return (
     <div className="w-full h-full flex flex-col items-center justify-center p-4">
         <h2 className="text-2xl font-bold text-gray-800 mb-2">Descubre tu Estilo Ideal</h2>
-        <p className="text-gray-600 mb-6 text-center">Sube dos fotos para una recomendación de IA personalizada.</p>
+        <p className="text-gray-600 mb-4 text-center">Sube dos fotos para una recomendación de IA personalizada.</p>
+        
+        {isGuest && (
+          <div className="bg-red-50 border border-red-100 text-red-600 font-bold px-4 py-2 rounded-xl text-[10px] uppercase tracking-wider mb-6 animate-pulse">
+            ⚡ Modo Invitado: {remaining} de 3 simulaciones gratuitas restantes
+          </div>
+        )}
+
         <div className="w-full max-w-md grid grid-cols-2 gap-4 mb-6">
             <PhotoSlot label="Foto de Frente" onFileSelect={setFrontPhoto} icon={FrontIcon} captureMode="user" />
             <PhotoSlot label="Foto de Perfil" onFileSelect={setSidePhoto} icon={SideIcon} captureMode="environment" />
