@@ -24,6 +24,7 @@ import HomeView from './views/HomeView';
 import LoginView from './views/LoginView';
 import MirrorView from './views/MirrorView';
 import { getStyleRecommendations, generateStyledImage } from './services/geminiService';
+import { compressImage } from './services/imageCompression';
 import ImageModal from './components/ImageModal';
 import GuestLimitModal from './components/GuestLimitModal';
 import { SupportWidget } from './components/SupportWidget';
@@ -304,10 +305,14 @@ const App: React.FC = () => {
       setMirrorState('processing');
       setAnalysisError(null);
       try {
+          console.log('[Visagismo AI] Comprimiendo y redimensionando fotos del cliente para optimizar rendimiento...');
+          const compressedFront = await compressImage(front, 800, 800, 0.8);
+          const compressedSide = await compressImage(side, 800, 800, 0.8);
+
           console.log('[Visagismo AI] Subiendo foto de frente a Firebase Storage...');
-          const frontUrl = await uploadShopImage(front, currentShop.id, 'galery');
+          const frontUrl = await uploadShopImage(compressedFront, currentShop.id, 'galery');
           console.log('[Visagismo AI] Subiendo foto de perfil a Firebase Storage...');
-          const sideUrl = await uploadShopImage(side, currentShop.id, 'galery');
+          const sideUrl = await uploadShopImage(compressedSide, currentShop.id, 'galery');
           
           setFrontImage(frontUrl);
           setSideImage(sideUrl);

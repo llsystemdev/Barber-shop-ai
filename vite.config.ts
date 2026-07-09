@@ -15,7 +15,7 @@ export default defineConfig({
       ignored: ['**/server/db.json', '**/db.json']
     },
     proxy: {
-        '/api': 'http://localhost:8080'
+        '/api': 'http://localhost:3000'
     }
   }
 });
