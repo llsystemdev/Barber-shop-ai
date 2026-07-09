@@ -6,7 +6,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import crypto from 'crypto';
 import { createServer as createViteServer } from 'vite';
-import { getDb, saveDb, hashPassword, generateSalt, firestore, storageBucket } from './database';
+import { getDb, saveDb, hashPassword, generateSalt, firestore, storageBucket, firebaseConfig } from './database';
 import Stripe from 'stripe';
 
 // Enterprise Layer Imports

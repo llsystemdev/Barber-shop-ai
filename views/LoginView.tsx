@@ -209,8 +209,22 @@ const LoginView: React.FC<{ onLogin: any, onGoHome: any }> = ({ onGoHome }) => {
                         )}
                         
                         {error && (
-                            <div className="bg-red-50 border-l-4 border-red-600 p-4 rounded-r-2xl">
+                            <div className="bg-red-50 border-l-4 border-red-600 p-4 rounded-r-2xl space-y-3">
                                 <p className="text-red-700 text-[10px] font-black leading-tight uppercase tracking-tight">{error}</p>
+                                {error.toLowerCase().includes('unauthorized-domain') && (
+                                    <div className="text-[10px] text-slate-700 font-medium space-y-1.5 normal-case tracking-normal border-t border-red-100 pt-2 mt-2">
+                                        <p className="font-bold text-red-700 uppercase tracking-wide">⚠️ ¿Cómo solucionar este error?</p>
+                                        <p>Tu dominio personalizado (<span className="font-bold text-slate-900">{window.location.host}</span>) no está autorizado en tu consola de Firebase.</p>
+                                        <ol className="list-decimal list-inside space-y-1 text-slate-600">
+                                            <li>Inicia sesión en tu <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer" className="text-red-700 font-bold underline hover:text-red-800">Consola de Firebase</a>.</li>
+                                            <li>Selecciona tu proyecto.</li>
+                                            <li>Ve a <strong>Authentication</strong> &gt; pestaña <strong>Settings</strong> (Configuración).</li>
+                                            <li>Selecciona <strong>Authorized domains</strong> (Dominios autorizados).</li>
+                                            <li>Haz clic en <strong>Add domain</strong> y añade exactamente: <code className="bg-slate-100 px-1.5 py-0.5 rounded font-mono font-black text-slate-800">{window.location.host}</code></li>
+                                        </ol>
+                                        <p className="text-slate-500 text-[9px] pt-1">Opcional: Si quieres habilitar el login de Google por el servidor independiente, configura las variables <code className="bg-slate-100 px-1 py-0.5 rounded font-mono">GOOGLE_CLIENT_ID</code> y <code className="bg-slate-100 px-1 py-0.5 rounded font-mono">GOOGLE_CLIENT_SECRET</code> en tus variables de entorno.</p>
+                                    </div>
+                                )}
                             </div>
                         )}
 

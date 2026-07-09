@@ -8,7 +8,7 @@ import { getStorage } from 'firebase-admin/storage';
 import { User, BarberShop, Booking } from '../types';
 
 // Load Firebase configuration
-let firebaseConfig: any = {};
+export let firebaseConfig: any = {};
 try {
   const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
   if (fsSync.existsSync(configPath)) {
