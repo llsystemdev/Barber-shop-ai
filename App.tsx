@@ -32,6 +32,27 @@ type ActiveView = 'chat' | 'mirror' | 'booking' | 'bookingsList' | 'shopProfile'
 type Screen = 'home' | 'login' | 'app';
 type MirrorState = 'initial' | 'processing' | 'results';
 
+const defaultDemoShop: BarberShop = {
+  id: 'default_shop',
+  name: 'Barbería AI Demo',
+  aiName: 'Asistente AI',
+  welcomeMessage: '¡Hola! Bienvenido. Soy tu Asistente AI de Estilismo. ¿Qué estilo te gustaría ver hoy?',
+  aiPersona: 'Profesional, amable y experto en visagismo de cabello.',
+  description: 'Barbería de demostración potenciada con Inteligencia Artificial.',
+  address: 'Calle del Estilo 123, Ciudad',
+  phone: '555-0199',
+  hours: { 'Lunes-Viernes': '09:00 - 18:00' },
+  gallery: [
+    'https://images.pexels.com/photos/3998429/pexels-photo-3998429.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
+    'https://images.pexels.com/photos/2061821/pexels-photo-2061821.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2'
+  ],
+  services: [{ name: 'Corte de Cabello Premium', price: '$25' }],
+  barbers: [{ name: 'Estilista Pro', specialty: 'General', imageUrl: '' }],
+  plan: 'Básico',
+  billingHistory: [],
+  paymentMethod: { type: 'Visa', last4: '4242', expiry: '12/28' }
+};
+
 const App: React.FC = () => {
   const [screen, setScreen] = useState<Screen>('home');
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
@@ -73,7 +94,7 @@ const App: React.FC = () => {
       role: 'customer',
       avatarUrl: '',
       isGuest: true,
-      shopId: shops[0]?.id
+      shopId: shops[0]?.id || 'default_shop'
     };
     setCurrentUser(guestUser);
     setActiveView('mirror');
@@ -269,7 +290,7 @@ const App: React.FC = () => {
     }
   };
 
-  const currentShop = (activeShopId && shops.find(s => s.id === activeShopId)) || shops[0];
+  const currentShop = (activeShopId && shops.find(s => s.id === activeShopId)) || shops[0] || defaultDemoShop;
 
   const handlePhotosReady = async (front: File, side: File) => {
       if (currentUser?.isGuest) {
@@ -448,7 +469,7 @@ const App: React.FC = () => {
   if (screen === 'home') return <HomeView onShowLogin={() => setScreen('login')} onGoHome={() => setScreen('home')} onStartGuestMode={handleStartGuestMode} />;
   if (screen === 'login') return <LoginView onLogin={() => {}} onGoHome={() => setScreen('home')} />;
 
-  if (screen === 'app' && !currentShop && currentUser?.role !== 'platformAdmin') {
+  if (screen === 'app' && shops.length === 0 && !currentUser?.isGuest && currentUser?.role !== 'platformAdmin') {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-slate-950 text-white p-6 text-center">
         <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center font-black text-white text-2xl shadow-lg mb-6">
