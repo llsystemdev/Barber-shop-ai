@@ -47,8 +47,8 @@ export function rateLimiter(options: { windowMs: number; max: number; message: s
  * Protects against clickjacking, XSS, MIME sniffing, and enforces HTTPS.
  */
 export function securityHeaders(req: Request, res: Response, next: NextFunction) {
-  // Prevent Clickjacking
-  res.setHeader('X-Frame-Options', 'DENY');
+  // Prevent Clickjacking (using SAMEORIGIN to allow preview within the platform, while CSP frame-ancestors provides robust protection)
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   
   // Prevent MIME Type Sniffing
   res.setHeader('X-Content-Type-Type', 'nosniff');
@@ -97,16 +97,28 @@ export function sanitizeInput(req: Request, res: Response, next: NextFunction) {
       .replace(/\//g, '&#x2F;');
   };
 
-  const traverseAndSanitize = (obj: any): any => {
+  const traverseAndSanitize = (obj: any, keyName?: string): any => {
     if (typeof obj === 'string') {
+      // Skip keys associated with binary/image data or URLs
+      const skipKeys = [
+        'frontImageUrl', 'sideImageUrl', 'image', 'frontImage', 'sideImage',
+        'data', 'avatarUrl', 'gallery', 'url', 'base64', 'photoUrl', 'bannerUrl'
+      ];
+      if (keyName && skipKeys.includes(keyName)) {
+        return obj;
+      }
+      // Also skip if it is a Data URI
+      if (obj.startsWith('data:image/')) {
+        return obj;
+      }
       return sanitizeString(obj);
     } else if (Array.isArray(obj)) {
-      return obj.map(item => traverseAndSanitize(item));
+      return obj.map(item => traverseAndSanitize(item, keyName));
     } else if (obj !== null && typeof obj === 'object') {
       const sanitizedObj: any = {};
       for (const key in obj) {
         if (Object.prototype.hasOwnProperty.call(obj, key)) {
-          sanitizedObj[key] = traverseAndSanitize(obj[key]);
+          sanitizedObj[key] = traverseAndSanitize(obj[key], key);
         }
       }
       return sanitizedObj;

@@ -655,6 +655,12 @@ async function startServer() {
     // Helper to fetch image from URL and return base64 with mimeType
     async function fetchImageAsBase64(url: string): Promise<{ data: string; mimeType: string }> {
         try {
+            if (url.startsWith('data:')) {
+                const match = url.match(/^data:([^;]+);base64,(.+)$/);
+                if (match) {
+                    return { mimeType: match[1], data: match[2] };
+                }
+            }
             const res = await fetch(url);
             if (!res.ok) {
                 throw new Error(`Fallo al descargar la imagen de la URL: ${res.statusText}`);
