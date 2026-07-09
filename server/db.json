@@ -1,0 +1,48 @@
+{
+  "users": [],
+  "shops": [],
+  "bookings": [],
+  "securityLogs": [
+    {
+      "id": "audit_1783617563991_ic3ni",
+      "time": "2026-07-09T17:19:23.991Z",
+      "level": "info",
+      "code": "CONSENT_RECORDED",
+      "message": "Consentimiento COOKIE_POLICY de anon@virtus.com: Aceptado",
+      "ip": "127.0.0.1",
+      "user": "anon@virtus.com"
+    },
+    {
+      "id": "audit_1783617563872_urtt9",
+      "time": "2026-07-09T17:19:23.872Z",
+      "level": "info",
+      "code": "CONSENT_RECORDED",
+      "message": "Consentimiento AI_FACIAL_ANALYSIS de anon@virtus.com: Aceptado",
+      "ip": "127.0.0.1",
+      "user": "anon@virtus.com"
+    }
+  ],
+  "supportTickets": [],
+  "userConsents": [
+    {
+      "id": "consent_1783617563863_dthc",
+      "userId": "guest_user",
+      "email": "anon@virtus.com",
+      "consentType": "AI_FACIAL_ANALYSIS",
+      "accepted": true,
+      "timestamp": "2026-07-09T17:19:23.863Z",
+      "documentVersion": "v1.2",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "consent_1783617563989_hrdy",
+      "userId": "guest_user",
+      "email": "anon@virtus.com",
+      "consentType": "COOKIE_POLICY",
+      "accepted": true,
+      "timestamp": "2026-07-09T17:19:23.989Z",
+      "documentVersion": "v1.2",
+      "ip": "127.0.0.1"
+    }
+  ]
+}

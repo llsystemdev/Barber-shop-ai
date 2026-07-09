@@ -5,7 +5,6 @@ import { GoogleGenAI, Modality, Type } from "@google/genai";
 import dotenv from 'dotenv';
 import path from 'path';
 import crypto from 'crypto';
-import { createServer as createViteServer } from 'vite';
 import { getDb, saveDb, hashPassword, generateSalt, firestore, storageBucket, firebaseConfig } from './database';
 import Stripe from 'stripe';
 
@@ -1239,6 +1238,7 @@ async function startServer() {
     // --- Static Frontend Serving ---
     const base = '/';
     if (process.env.NODE_ENV !== 'production') {
+        const { createServer: createViteServer } = await import('vite');
         const vite = await createViteServer({
             server: { 
                 middlewareMode: true,
