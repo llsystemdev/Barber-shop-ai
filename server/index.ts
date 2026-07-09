@@ -807,7 +807,10 @@ async function startServer() {
                 }
             } catch (downloadError: any) {
                 console.error('[Visagismo AI] Error descargando imágenes:', downloadError);
-                return res.status(500).json({ error: "No fue posible completar el análisis. Inténtalo nuevamente." });
+                return res.status(500).json({ 
+                    error: "No fue posible completar el análisis. Inténtalo nuevamente.",
+                    details: `Error al procesar imágenes: ${downloadError.message || downloadError}`
+                });
             }
 
             const responseSchema = {
@@ -927,7 +930,11 @@ async function startServer() {
             res.json(parsedResult);
         } catch (error: any) {
             console.error('Error in /api/analyze:', error);
-            res.status(500).json({ error: "No fue posible completar el análisis. Inténtalo nuevamente." });
+            res.status(500).json({ 
+                error: "No fue posible completar el análisis. Inténtalo nuevamente.",
+                details: `Error en análisis: ${error.message || error}`,
+                stack: error.stack
+            });
         }
     });
 

@@ -102,7 +102,8 @@ export function sanitizeInput(req: Request, res: Response, next: NextFunction) {
       // Skip keys associated with binary/image data or URLs
       const skipKeys = [
         'frontImageUrl', 'sideImageUrl', 'image', 'frontImage', 'sideImage',
-        'data', 'avatarUrl', 'gallery', 'url', 'base64', 'photoUrl', 'bannerUrl'
+        'data', 'avatarUrl', 'gallery', 'url', 'base64', 'photoUrl', 'bannerUrl',
+        'mimeType', 'mimetype'
       ];
       if (keyName && skipKeys.includes(keyName)) {
         return obj;
