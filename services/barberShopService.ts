@@ -143,19 +143,20 @@ export const uploadBase64Image = async (base64: string, shopId: string, bucket: 
       return base64;
     }
 
-    const targetFolder = 'haircuts'; // Store gallery uploads inside 'haircuts' folder
-    const blob = base64ToBlob(base64);
-    const fileExtension = blob.type.split('/')[1] || 'jpg';
-    const randomId = Math.random().toString(36).substring(2, 15);
-    const fileName = `${shopId}/${Date.now()}-${randomId}.${fileExtension}`;
-
-    const storageRef = ref(storage, `${targetFolder}/${fileName}`);
-    await uploadBytes(storageRef, blob, {
-      contentType: blob.type
+    const response = await fetch('/api/upload', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ base64, shopId, bucket })
     });
 
-    const downloadUrl = await getDownloadURL(storageRef);
-    return downloadUrl;
+    if (!response.ok) {
+      throw new Error(`Error en la subida: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    return result.url || base64;
   } catch (error: any) {
     console.error('[uploadBase64Image Error] Falling back to base64:', error);
     return base64;
@@ -164,18 +165,27 @@ export const uploadBase64Image = async (base64: string, shopId: string, bucket: 
 
 export const uploadShopImage = async (file: File, shopId: string, bucket: 'galery' | 'barbers'): Promise<string> => {
   try {
-    const targetFolder = bucket === 'galery' ? 'haircuts' : 'avatars'; // Store in 'haircuts' or 'avatars' folder
-    const fileExtension = file.name.split('.').pop() || 'jpg';
-    const randomId = Math.random().toString(36).substring(2, 15);
-    const fileName = `${shopId}/${Date.now()}-${randomId}.${fileExtension}`;
-
-    const storageRef = ref(storage, `${targetFolder}/${fileName}`);
-    await uploadBytes(storageRef, file, {
-      contentType: file.type
+    const base64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = error => reject(error);
     });
 
-    const downloadUrl = await getDownloadURL(storageRef);
-    return downloadUrl;
+    const response = await fetch('/api/upload', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ base64, shopId, bucket })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Error en la subida: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    return result.url || base64;
   } catch (error: any) {
     console.error('[uploadShopImage Error] Falling back to local base64:', error);
     return new Promise((resolve, reject) => {

@@ -4,6 +4,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { getApps, initializeApp, applicationDefault } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { getStorage } from 'firebase-admin/storage';
 import { User, BarberShop, Booking } from '../types';
 
 // Load Firebase configuration
@@ -48,6 +49,11 @@ export const firestore = getApps().length > 0
   ? (firebaseConfig.firestoreDatabaseId
       ? getFirestore(getApps()[0], firebaseConfig.firestoreDatabaseId)
       : getFirestore(getApps()[0]))
+  : null;
+
+// Get Storage reference
+export const storageBucket = getApps().length > 0 && firebaseConfig.storageBucket
+  ? getStorage(getApps()[0]).bucket(firebaseConfig.storageBucket)
   : null;
 
 const DB_FILE = path.join(process.cwd(), 'server', 'db.json');

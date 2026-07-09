@@ -6,7 +6,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import crypto from 'crypto';
 import { createServer as createViteServer } from 'vite';
-import { getDb, saveDb, hashPassword, generateSalt, firestore } from './database';
+import { getDb, saveDb, hashPassword, generateSalt, firestore, storageBucket } from './database';
 import Stripe from 'stripe';
 
 // Enterprise Layer Imports
@@ -674,6 +674,79 @@ async function startServer() {
             throw new Error(`No se pudo obtener o procesar la imagen de origen: ${err.message || err}`);
         }
     }
+
+    // Helper to upload base64 to Firebase Storage on the backend
+    async function uploadBase64ToStorageBackend(base64: string, shopId: string, bucketType: string): Promise<string> {
+        if (!storageBucket) {
+            console.warn('[Backend Upload] storageBucket is not initialized, falling back to base64');
+            return base64;
+        }
+
+        try {
+            const match = base64.match(/^data:([^;]+);base64,(.+)$/);
+            if (!match) {
+                return base64; // Not a base64 data URI, return as is
+            }
+
+            const mimeType = match[1];
+            const base64Data = match[2];
+            const buffer = Buffer.from(base64Data, 'base64');
+
+            const fileExtension = mimeType.split('/')[1] || 'jpg';
+            const randomId = crypto.randomBytes(6).toString('hex');
+            const targetFolder = bucketType === 'galery' ? 'haircuts' : 'avatars';
+            const fileName = `${targetFolder}/${shopId}/${Date.now()}-${randomId}.${fileExtension}`;
+
+            const fileRef = storageBucket.file(fileName);
+            await fileRef.save(buffer, {
+                metadata: {
+                    contentType: mimeType,
+                }
+            });
+
+            // Try to make public
+            try {
+                await fileRef.makePublic();
+            } catch (makePublicErr) {
+                console.warn('[Backend Upload] Could not make public, continuing:', makePublicErr);
+            }
+
+            // Generate direct public Firebase Storage URL format
+            const bucketName = storageBucket.name;
+            const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodeURIComponent(fileName)}?alt=media`;
+
+            try {
+                // Try to get a signed URL with a long expiration
+                const [signedUrl] = await fileRef.getSignedUrl({
+                    action: 'read',
+                    expires: '01-01-2036',
+                });
+                console.log(`[Backend Upload] Generated signed URL successfully: ${signedUrl}`);
+                return signedUrl;
+            } catch (signedErr) {
+                console.warn('[Backend Upload] getSignedUrl failed, falling back to public URL:', signedErr);
+                return publicUrl;
+            }
+        } catch (error: any) {
+            console.error('[Backend Upload Error]', error);
+            return base64; // Return base64 as fallback
+        }
+    }
+
+    // Endpoint to upload base64 image from client (handles bypass of storage rules and custom domains)
+    app.post('/api/upload', async (req, res) => {
+        try {
+            const { base64, shopId, bucket } = req.body;
+            if (!base64) {
+                return res.status(400).json({ error: 'No se recibieron datos de imagen' });
+            }
+            const url = await uploadBase64ToStorageBackend(base64, shopId || 'default_shop', bucket || 'galery');
+            res.json({ url });
+        } catch (error: any) {
+            console.error('[API Upload Error]', error);
+            res.status(500).json({ error: error.message || 'Error al subir imagen' });
+        }
+    });
 
     // 2. Style Analysis Endpoint (Real Visagismo Mirror Analysis)
     app.post('/api/analyze', async (req, res) => {
