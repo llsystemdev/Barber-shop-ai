@@ -1,6 +1,15 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User as AppUser } from '../types';
-import { mockShopOwnerUser, mockAdminUser } from '../mock/users';
+import { 
+  auth, 
+  googleProvider, 
+  signInWithPopup, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut, 
+  sendPasswordResetEmail 
+} from '../firebase/client';
+import { onAuthStateChanged as firebaseOnAuthStateChanged } from 'firebase/auth';
 
 // Type definitions for our Auth Context
 export interface AuthContextType {
@@ -15,170 +24,164 @@ export interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Local listeners array to replicate onAuthStateChanged
-const authListeners: Array<(user: AppUser | null) => void> = [];
-
 // Helper to get active user from localStorage
 export const getActiveUser = (): AppUser | null => {
   const saved = localStorage.getItem('mock_user_session');
   return saved ? JSON.parse(saved) : null;
 };
 
-// Helper to set active user in localStorage and notify listeners
+// Helper to set active user in localStorage
 export const setActiveUser = (user: AppUser | null) => {
   if (user) {
     localStorage.setItem('mock_user_session', JSON.stringify(user));
+    localStorage.setItem('userRole', user.role);
   } else {
     localStorage.removeItem('mock_user_session');
     localStorage.removeItem('userRole');
   }
-  authListeners.forEach(listener => listener(user));
 };
 
-// --- AUTHENTICATION METHODS (REPLACING FIREBASE AUTH WITH REAL BACKEND) ---
+// --- AUTHENTICATION METHODS WITH REAL FIREBASE AUTH ---
 
 export const loginWithEmail = async (email: string, password: string) => {
   try {
-    const response = await fetch('/api/auth/login', {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const firebaseUser = userCredential.user;
+    
+    // Check if there is an explicit role selected in UI or fallback to typical roles
+    const role = localStorage.getItem('userRole') || (email.toLowerCase().includes('admin') ? 'platformAdmin' : 'shopOwner');
+    
+    const appUser: AppUser = {
+      id: firebaseUser.uid,
+      name: firebaseUser.displayName || email.split('@')[0],
+      email: firebaseUser.email || email,
+      role: role as any,
+      avatarUrl: firebaseUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${firebaseUser.uid}`
+    };
+
+    // Synchronize the authenticated user profile with Firestore and local backend DB
+    await fetch('/api/auth/sync-firebase-user', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({ user: appUser })
     });
-    
-    const data = await response.json();
-    if (!response.ok) {
-      return { data: null, error: new Error(data.error || 'Error al iniciar sesión') };
-    }
-    
-    localStorage.setItem('userRole', data.user.role);
-    setActiveUser(data.user);
-    return { data: { user: data.user }, error: null };
+
+    setActiveUser(appUser);
+    return { data: { user: appUser }, error: null };
   } catch (err: any) {
+    console.error('[loginWithEmail Error]', err);
     return { data: null, error: err };
   }
 };
 
 export const loginWithGoogle = async (): Promise<{ data: any; error: any }> => {
-  return new Promise(async (resolve) => {
-    try {
-      const role = localStorage.getItem('userRole') || 'shopOwner';
-      const redirectUri = `${window.location.origin}/api/auth/google/callback`;
-      
-      const response = await fetch(`/api/auth/google/url?redirect_uri=${encodeURIComponent(redirectUri)}&role=${role}`);
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        resolve({ data: null, error: new Error(errorData.error || 'Error al obtener la URL de Google') });
-        return;
-      }
-      const { url } = await response.json();
+  try {
+    const userCredential = await signInWithPopup(auth, googleProvider);
+    const firebaseUser = userCredential.user;
+    
+    const role = localStorage.getItem('userRole') || 'shopOwner';
+    
+    const appUser: AppUser = {
+      id: firebaseUser.uid,
+      name: firebaseUser.displayName || 'Usuario Google',
+      email: firebaseUser.email || '',
+      role: role as any,
+      avatarUrl: firebaseUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${firebaseUser.uid}`
+    };
 
-      const authWindow = window.open(
-        url,
-        'google_oauth_popup',
-        'width=500,height=600'
-      );
+    // Synchronize the authenticated user profile with Firestore and local backend DB
+    await fetch('/api/auth/sync-firebase-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user: appUser })
+    });
 
-      if (!authWindow) {
-        resolve({ data: null, error: new Error('El navegador bloqueó la ventana emergente de Google. Por favor, actívala para iniciar sesión.') });
-        return;
-      }
-
-      // Handler for message events
-      const handleMessage = (event: MessageEvent) => {
-        const origin = event.origin;
-        if (!origin.endsWith('.run.app') && !origin.includes('localhost')) {
-          return;
-        }
-
-        if (event.data?.type === 'GOOGLE_AUTH_SUCCESS') {
-          const user = event.data.user;
-          localStorage.setItem('userRole', user.role);
-          setActiveUser(user);
-          window.removeEventListener('message', handleMessage);
-          resolve({ data: { user }, error: null });
-        }
-      };
-
-      window.addEventListener('message', handleMessage);
-
-      // Simple interval to detect when user closes popup without logging in
-      const checkClosed = setInterval(() => {
-        if (authWindow.closed) {
-          clearInterval(checkClosed);
-          window.removeEventListener('message', handleMessage);
-          // Wait briefly in case message event has already been queued or processed
-          setTimeout(() => {
-            const current = getActiveUser();
-            if (current) {
-              resolve({ data: { user: current }, error: null });
-            } else {
-              resolve({ data: null, error: new Error('La autenticación con Google fue cancelada.') });
-            }
-          }, 500);
-        }
-      }, 1000);
-
-    } catch (err: any) {
-      resolve({ data: null, error: err });
-    }
-  });
+    setActiveUser(appUser);
+    return { data: { user: appUser }, error: null };
+  } catch (err: any) {
+    console.error('[loginWithGoogle Error]', err);
+    return { data: null, error: err };
+  }
 };
 
 export const registerWithEmail = async (email: string, password: string, name: string) => {
   try {
-    const response = await fetch('/api/auth/register', {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const firebaseUser = userCredential.user;
+    
+    const role = 'shopOwner'; // Default newly registered users as shopOwner SaaS tenant
+    
+    const appUser: AppUser = {
+      id: firebaseUser.uid,
+      name: name,
+      email: firebaseUser.email || email,
+      role: role as any,
+      avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${firebaseUser.uid}`
+    };
+
+    // Synchronize the authenticated user profile with Firestore and local backend DB
+    await fetch('/api/auth/sync-firebase-user', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, name, role: 'shopOwner' })
+      body: JSON.stringify({ user: appUser })
     });
-    
-    const data = await response.json();
-    if (!response.ok) {
-      return { data: null, error: new Error(data.error || 'Error en el registro') };
-    }
-    
-    localStorage.setItem('userRole', data.user.role);
-    setActiveUser(data.user);
-    return { data: { user: data.user }, error: null };
+
+    setActiveUser(appUser);
+    return { data: { user: appUser }, error: null };
   } catch (err: any) {
+    console.error('[registerWithEmail Error]', err);
     return { data: null, error: err };
   }
 };
 
 export const logoutUser = async () => {
-  setActiveUser(null);
-  return { error: null };
+  try {
+    await signOut(auth);
+    setActiveUser(null);
+    return { error: null };
+  } catch (err: any) {
+    console.error('[logoutUser Error]', err);
+    return { error: err };
+  }
 };
 
 export const resetPassword = async (email: string) => {
-  // Simple simulation since we don't send emails actually
-  return new Promise<{ error: any }>((resolve) => {
-    setTimeout(() => {
-      resolve({ error: null });
-    }, 500);
-  });
+  try {
+    await sendPasswordResetEmail(auth, email);
+    return { error: null };
+  } catch (err: any) {
+    console.error('[resetPassword Error]', err);
+    return { error: err };
+  }
 };
 
-// Replaces Firebase onAuthStateChanged and supports both signatures
+// Replaces Firebase onAuthStateChanged and integrates directly with React callbacks
 export const onAuthStateChanged = (arg1: any, arg2?: any) => {
   const callback = typeof arg1 === 'function' ? arg1 : arg2;
   if (!callback) return () => {};
   
-  authListeners.push(callback);
-  
-  // Call immediately with existing session
-  const current = getActiveUser();
-  setTimeout(() => {
-    callback(current);
-  }, 50);
-
-  // Return unsubscribe function
-  return () => {
-    const idx = authListeners.indexOf(callback);
-    if (idx > -1) {
-      authListeners.splice(idx, 1);
+  return firebaseOnAuthStateChanged(auth, async (firebaseUser) => {
+    if (firebaseUser) {
+      const saved = localStorage.getItem('mock_user_session');
+      let appUser = saved ? JSON.parse(saved) : null;
+      
+      if (!appUser || appUser.id !== firebaseUser.uid) {
+        const role = localStorage.getItem('userRole') || (firebaseUser.email?.toLowerCase().includes('admin') ? 'platformAdmin' : 'shopOwner');
+        appUser = {
+          id: firebaseUser.uid,
+          name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Usuario',
+          email: firebaseUser.email || '',
+          role: role as any,
+          avatarUrl: firebaseUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${firebaseUser.uid}`
+        };
+        setActiveUser(appUser);
+      }
+      callback(appUser);
+    } else {
+      setActiveUser(null);
+      callback(null);
     }
-  };
+  });
 };
 
 // --- AUTH PROVIDER COMPONENT ---

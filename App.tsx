@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Message, BarberShop, Booking, User as AppUser } from './types';
-import { barbershops as mockShops } from './barbershops';
 import { 
     getShopForUser, 
     subscribeToBookings, 
@@ -41,7 +40,7 @@ const App: React.FC = () => {
     return saved ? parseInt(saved, 10) : 0;
   });
   const [showGuestLimitModal, setShowGuestLimitModal] = useState<boolean>(false);
-  const [shops, setShops] = useState<BarberShop[]>(mockShops); 
+  const [shops, setShops] = useState<BarberShop[]>([]); 
   const [activeShopId, setActiveShopId] = useState<string | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [activeView, setActiveView] = useState<ActiveView>('admin');
@@ -92,6 +91,18 @@ const App: React.FC = () => {
         }
     });
     return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const fetchShopsOnMount = async () => {
+      try {
+        const list = await getAllShops();
+        setShops(list);
+      } catch (e) {
+        console.error("Error loading shops on mount:", e);
+      }
+    };
+    fetchShopsOnMount();
   }, []);
 
   useEffect(() => {
@@ -258,7 +269,7 @@ const App: React.FC = () => {
     }
   };
 
-  const currentShop = (activeShopId && shops.find(s => s.id === activeShopId)) || shops[0] || mockShops[0];
+  const currentShop = (activeShopId && shops.find(s => s.id === activeShopId)) || shops[0];
 
   const handlePhotosReady = async (front: File, side: File) => {
       if (currentUser?.isGuest) {
@@ -436,6 +447,26 @@ const App: React.FC = () => {
 
   if (screen === 'home') return <HomeView onShowLogin={() => setScreen('login')} onGoHome={() => setScreen('home')} onStartGuestMode={handleStartGuestMode} />;
   if (screen === 'login') return <LoginView onLogin={() => {}} onGoHome={() => setScreen('home')} />;
+
+  if (screen === 'app' && !currentShop && currentUser?.role !== 'platformAdmin') {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-slate-950 text-white p-6 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center font-black text-white text-2xl shadow-lg mb-6">
+          B
+        </div>
+        <h2 className="text-2xl font-black uppercase tracking-tight mb-2">No hay Barberías Registradas</h2>
+        <p className="text-slate-400 text-sm max-w-md mb-8">
+          Actualmente no hay salones de barbería configurados en el sistema de producción. Registra una cuenta como dueño de barbería para habilitar tu propio salón central potenciado con IA.
+        </p>
+        <button
+          onClick={async () => { await localLogout(); setScreen('home'); }}
+          className="px-6 py-3 bg-red-600 hover:bg-red-700 font-bold uppercase text-xs tracking-widest rounded-xl transition-all shadow-lg"
+        >
+          Volver al Inicio
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="relative flex h-screen bg-slate-50 overflow-hidden">

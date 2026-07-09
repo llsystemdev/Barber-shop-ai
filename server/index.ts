@@ -192,6 +192,70 @@ async function startServer() {
         }
     });
 
+    // 1b. Sync Firebase Authenticated User
+    app.post('/api/auth/sync-firebase-user', async (req, res) => {
+        try {
+            const { user } = req.body;
+            if (!user || !user.id) {
+                return res.status(400).json({ error: 'Faltan datos de usuario para sincronización' });
+            }
+
+            const db = await getDb();
+            let index = db.users.findIndex(u => u.id === user.id);
+            let mergedUser;
+
+            if (index > -1) {
+                // Update existing user profile, keeping their assigned shopId if any
+                mergedUser = { ...db.users[index], ...user };
+                db.users[index] = mergedUser;
+            } else {
+                // Create user profile
+                mergedUser = {
+                    ...user,
+                    shopId: undefined as string | undefined
+                };
+
+                // Automatically provision a barber shop for newly registered SaaS owners
+                if (mergedUser.role === 'shopOwner') {
+                    const shopId = `shop_${Date.now()}`;
+                    const defaultShop = {
+                        id: shopId,
+                        ownerId: mergedUser.id,
+                        name: `${mergedUser.name} Barbería AI`,
+                        aiName: 'Asistente AI',
+                        welcomeMessage: '¡Hola! Bienvenido. Soy tu Asistente AI de Estilismo. ¿Qué estilo te gustaría ver hoy?',
+                        aiPersona: 'Profesional, amable y experto en visagismo de cabello.',
+                        description: 'Nueva barbería registrada y potenciada con Inteligencia Artificial.',
+                        address: 'Calle del Estilo 123, Ciudad',
+                        phone: '555-0199',
+                        hours: { 'Lunes-Viernes': '09:00 - 18:00' },
+                        gallery: [
+                          'https://images.pexels.com/photos/3998429/pexels-photo-3998429.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
+                          'https://images.pexels.com/photos/2061821/pexels-photo-2061821.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2'
+                        ],
+                        services: [{ name: 'Corte de Cabello Premium', price: '$25' }],
+                        barbers: [{ name: mergedUser.name || 'Dueño', specialty: 'General', imageUrl: '' }],
+                        plan: 'Freemium' as const,
+                        billingHistory: [],
+                        paymentMethod: { type: 'Visa' as const, last4: '0000', expiry: '00/00' }
+                    };
+                    db.shops.push(defaultShop);
+                    mergedUser.shopId = shopId;
+                }
+
+                db.users.push(mergedUser);
+            }
+
+            await saveDb();
+            await logAuditEvent('success', 'USER_SYNC', `Sincronización de usuario Firebase exitosa: ${mergedUser.email}`, req.ip, mergedUser.email);
+            
+            res.json({ success: true, user: mergedUser });
+        } catch (error: any) {
+            console.error('Error in /api/auth/sync-firebase-user:', error);
+            res.status(500).json({ error: error.message });
+        }
+    });
+
     // 2. Auth Login
     app.post('/api/auth/login', rateLimiter({ windowMs: 10 * 60 * 1000, max: 10, message: 'Demasiados intentos de inicio de sesión. Intente más tarde.' }), async (req, res) => {
         try {

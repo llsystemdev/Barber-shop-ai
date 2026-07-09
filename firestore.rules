@@ -1,0 +1,47 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Users Collection rules
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && (request.auth.uid == userId || resource == null);
+    }
+
+    // Shops (Barber shops tenants) rules
+    match /shops/{shopId} {
+      allow read: if true; // Anybody can look up barber shops and booking details
+      allow write: if isAuthenticated();
+    }
+
+    // Bookings (Appointments) rules
+    match /bookings/{bookingId} {
+      allow read: if true;
+      allow write: if true; // Both guests and logged-in clients/owners can reserve slots
+    }
+
+    // Security logs for GDPR & Auditing
+    match /securityLogs/{logId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Support ticketing rules
+    match /supportTickets/{ticketId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // User consent and GDPR compliance rules
+    match /userConsents/{consentId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && (request.resource.data.userId == request.auth.uid || resource == null);
+    }
+  }
+}

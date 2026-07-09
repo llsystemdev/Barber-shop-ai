@@ -229,38 +229,7 @@ const LoginView: React.FC<{ onLogin: any, onGoHome: any }> = ({ onGoHome }) => {
                         </button>
                     </form>
 
-                    {/* Quick Demo Credentials Assistant */}
-                    {!isResettingPassword && (
-                        <div className="mt-8 p-4 bg-slate-50 border border-slate-100 rounded-2xl">
-                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 text-center">🔐 Credenciales de Demostración</p>
-                            <div className="grid grid-cols-2 gap-2 text-center">
-                                <button 
-                                    type="button"
-                                    onClick={() => {
-                                        setEmail('owner@virtus.com');
-                                        setPassword('password123');
-                                        setRole('shopOwner');
-                                        setIsRegistering(false);
-                                    }}
-                                    className="p-2.5 bg-white border border-slate-200 rounded-xl hover:border-red-600 transition-colors text-[9px] font-black text-slate-700 uppercase tracking-wider"
-                                >
-                                    🔑 Barber Owner
-                                </button>
-                                <button 
-                                    type="button"
-                                    onClick={() => {
-                                        setEmail('admin@virtus.com');
-                                        setPassword('password123');
-                                        setRole('platformAdmin');
-                                        setIsRegistering(false);
-                                    }}
-                                    className="p-2.5 bg-white border border-slate-200 rounded-xl hover:border-red-600 transition-colors text-[9px] font-black text-slate-700 uppercase tracking-wider"
-                                >
-                                    👑 Super Admin
-                                </button>
-                            </div>
-                        </div>
-                    )}
+
                 </div>
                 
                 {!isResettingPassword && role !== 'platformAdmin' && (

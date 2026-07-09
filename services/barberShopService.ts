@@ -1,4 +1,19 @@
 import { Booking, BarberShop } from "../types";
+import { storage } from '../firebase/client';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+
+// Helper function to convert base64 data URIs to Blobs for Firebase Storage uploads
+function base64ToBlob(base64: string): Blob {
+  const parts = base64.split(';base64,');
+  const contentType = parts[0].split(':')[1];
+  const raw = window.atob(parts[1]);
+  const rawLength = raw.length;
+  const uInt8Array = new Uint8Array(rawLength);
+  for (let i = 0; i < rawLength; ++i) {
+    uInt8Array[i] = raw.charCodeAt(i);
+  }
+  return new Blob([uInt8Array], { type: contentType });
+}
 
 // --- REAL BACKEND OPERATIONS FOR BARBER SHOPS & BOOKINGS ---
 
@@ -123,18 +138,51 @@ export const subscribeToBookings = (shopName: string, callback: (bookings: Booki
 // --- IMAGE UPLOAD SERVICE ---
 
 export const uploadBase64Image = async (base64: string, shopId: string, bucket: 'galery'): Promise<string> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve(base64); // Return base64 direct data URI so it loads instantly
-    }, 200);
-  });
+  try {
+    if (!base64.startsWith('data:')) {
+      return base64;
+    }
+
+    const targetFolder = 'haircuts'; // Store gallery uploads inside 'haircuts' folder
+    const blob = base64ToBlob(base64);
+    const fileExtension = blob.type.split('/')[1] || 'jpg';
+    const randomId = Math.random().toString(36).substring(2, 15);
+    const fileName = `${shopId}/${Date.now()}-${randomId}.${fileExtension}`;
+
+    const storageRef = ref(storage, `${targetFolder}/${fileName}`);
+    await uploadBytes(storageRef, blob, {
+      contentType: blob.type
+    });
+
+    const downloadUrl = await getDownloadURL(storageRef);
+    return downloadUrl;
+  } catch (error: any) {
+    console.error('[uploadBase64Image Error] Falling back to base64:', error);
+    return base64;
+  }
 };
 
 export const uploadShopImage = async (file: File, shopId: string, bucket: 'galery' | 'barbers'): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = error => reject(error);
-  });
+  try {
+    const targetFolder = bucket === 'galery' ? 'haircuts' : 'avatars'; // Store in 'haircuts' or 'avatars' folder
+    const fileExtension = file.name.split('.').pop() || 'jpg';
+    const randomId = Math.random().toString(36).substring(2, 15);
+    const fileName = `${shopId}/${Date.now()}-${randomId}.${fileExtension}`;
+
+    const storageRef = ref(storage, `${targetFolder}/${fileName}`);
+    await uploadBytes(storageRef, file, {
+      contentType: file.type
+    });
+
+    const downloadUrl = await getDownloadURL(storageRef);
+    return downloadUrl;
+  } catch (error: any) {
+    console.error('[uploadShopImage Error] Falling back to local base64:', error);
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = error => reject(error);
+    });
+  }
 };
