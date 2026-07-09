@@ -75,11 +75,10 @@ export const loginWithEmail = async (email: string, password: string) => {
 };
 
 export const loginWithGoogle = async (): Promise<{ data: any; error: any }> => {
+  const role = localStorage.getItem('userRole') || 'shopOwner';
   try {
     const userCredential = await signInWithPopup(auth, googleProvider);
     const firebaseUser = userCredential.user;
-    
-    const role = localStorage.getItem('userRole') || 'shopOwner';
     
     const appUser: AppUser = {
       id: firebaseUser.uid,
@@ -99,8 +98,50 @@ export const loginWithGoogle = async (): Promise<{ data: any; error: any }> => {
     setActiveUser(appUser);
     return { data: { user: appUser }, error: null };
   } catch (err: any) {
-    console.error('[loginWithGoogle Error]', err);
-    return { data: null, error: err };
+    console.warn('[loginWithGoogle] Standard Firebase popup failed, trying server-side Google OAuth fallback:', err);
+    try {
+      const redirectUri = `${window.location.origin}/api/auth/google/callback`;
+      const response = await fetch(`/api/auth/google/url?redirect_uri=${encodeURIComponent(redirectUri)}&role=${encodeURIComponent(role)}`);
+      if (!response.ok) {
+        throw new Error('No se pudo obtener la URL de inicio de sesión de Google desde el servidor.');
+      }
+      const { url } = await response.json();
+      
+      const width = 500;
+      const height = 650;
+      const left = window.screenX + (window.outerWidth - width) / 2;
+      const top = window.screenY + (window.outerHeight - height) / 2;
+      
+      const popup = window.open(url, 'GoogleAuth', `width=${width},height=${height},left=${left},top=${top}`);
+      if (!popup) {
+        throw new Error('El bloqueador de ventanas emergentes impidió abrir el inicio de sesión. Por favor, permítelo.');
+      }
+
+      return new Promise((resolve) => {
+        const handler = async (event: MessageEvent) => {
+          if (event.data && event.data.type === 'GOOGLE_AUTH_SUCCESS') {
+            window.removeEventListener('message', handler);
+            clearInterval(checkClosed);
+            const appUser = event.data.user;
+            setActiveUser(appUser);
+            resolve({ data: { user: appUser }, error: null });
+          }
+        };
+        
+        window.addEventListener('message', handler);
+        
+        const checkClosed = setInterval(() => {
+          if (!popup || popup.closed) {
+            clearInterval(checkClosed);
+            window.removeEventListener('message', handler);
+            resolve({ data: null, error: new Error('La ventana de inicio de sesión fue cerrada') });
+          }
+        }, 1000);
+      });
+    } catch (fallbackErr: any) {
+      console.error('[loginWithGoogle Fallback Error]', fallbackErr);
+      return { data: null, error: fallbackErr };
+    }
   }
 };
 
@@ -160,10 +201,23 @@ export const onAuthStateChanged = (arg1: any, arg2?: any) => {
   const callback = typeof arg1 === 'function' ? arg1 : arg2;
   if (!callback) return () => {};
   
+  // Deliver the existing local session immediately if it exists
+  const saved = localStorage.getItem('mock_user_session');
+  if (saved) {
+    try {
+      const appUser = JSON.parse(saved);
+      callback(appUser);
+    } catch (e) {
+      console.error('Error parsing mock_user_session:', e);
+    }
+  } else {
+    callback(null);
+  }
+  
   return firebaseOnAuthStateChanged(auth, async (firebaseUser) => {
     if (firebaseUser) {
-      const saved = localStorage.getItem('mock_user_session');
-      let appUser = saved ? JSON.parse(saved) : null;
+      const savedSession = localStorage.getItem('mock_user_session');
+      let appUser = savedSession ? JSON.parse(savedSession) : null;
       
       if (!appUser || appUser.id !== firebaseUser.uid) {
         const role = localStorage.getItem('userRole') || (firebaseUser.email?.toLowerCase().includes('admin') ? 'platformAdmin' : 'shopOwner');
@@ -178,8 +232,25 @@ export const onAuthStateChanged = (arg1: any, arg2?: any) => {
       }
       callback(appUser);
     } else {
-      setActiveUser(null);
-      callback(null);
+      // Only clear the session if the current saved user is NOT a backend Google-authenticated user (whose ID starts with 'google-')
+      const currentSaved = localStorage.getItem('mock_user_session');
+      if (currentSaved) {
+        try {
+          const parsed = JSON.parse(currentSaved);
+          if (parsed && parsed.id && !parsed.id.startsWith('google-')) {
+            setActiveUser(null);
+            callback(null);
+          } else if (parsed) {
+            // Keep the google- session active!
+            callback(parsed);
+          }
+        } catch (e) {
+          setActiveUser(null);
+          callback(null);
+        }
+      } else {
+        callback(null);
+      }
     }
   });
 };
