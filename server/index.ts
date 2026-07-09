@@ -34,7 +34,9 @@ function getStripe(): Stripe {
 
 async function startServer() {
     const app = express();
-    const port = Number(process.env.PORT) || 3000;
+    const port = process.env.NODE_ENV === 'production'
+        ? (Number(process.env.PORT) || 3000)
+        : 3000;
 
     // Enterprise Security Headers
     app.use(securityHeaders);
