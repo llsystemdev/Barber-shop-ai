@@ -6,7 +6,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import crypto from 'crypto';
 import { createServer as createViteServer } from 'vite';
-import { getDb, saveDb, hashPassword, generateSalt } from './database';
+import { getDb, saveDb, hashPassword, generateSalt, firestore } from './database';
 import Stripe from 'stripe';
 
 // Enterprise Layer Imports
@@ -652,60 +652,176 @@ async function startServer() {
         }
     });
 
-    // 2. Style Analysis Endpoint
+    // Helper to fetch image from URL and return base64 with mimeType
+    async function fetchImageAsBase64(url: string): Promise<{ data: string; mimeType: string }> {
+        try {
+            const res = await fetch(url);
+            if (!res.ok) {
+                throw new Error(`Fallo al descargar la imagen de la URL: ${res.statusText}`);
+            }
+            const arrayBuffer = await res.arrayBuffer();
+            const mimeType = res.headers.get('content-type') || 'image/jpeg';
+            const data = Buffer.from(arrayBuffer).toString('base64');
+            return { data, mimeType };
+        } catch (err: any) {
+            console.error(`Error en fetchImageAsBase64 para la URL ${url}:`, err);
+            throw new Error(`No se pudo obtener o procesar la imagen de origen: ${err.message || err}`);
+        }
+    }
+
+    // 2. Style Analysis Endpoint (Real Visagismo Mirror Analysis)
     app.post('/api/analyze', async (req, res) => {
         try {
-            const { frontImage, sideImage, shop } = req.body;
+            const { frontImageUrl, sideImageUrl, frontImage, sideImage, shop, userId } = req.body;
 
             if (!apiKey || !ai) {
-                return res.json({
-                    styles: [
-                        "Modern Fade con Textura",
-                        "Classic Pompadour Modernizado",
-                        "Taper Fade con Flequillo Corto",
-                        "Low Fade con Textura Desordenada"
-                    ],
-                    finalRecommendation: `Basado en la estructura de tu rostro y el contorno de tus facciones, un corte con degradado (Fade) acentuará tu línea de la mandíbula aportando definición y carácter. Recomendamos usar cera mate (Clay) de fijación fuerte para peinar el cabello superior hacia adelante o hacia un lado para lograr el máximo dinamismo y textura.`
-                });
+                return res.status(500).json({ error: "No fue posible completar el análisis. Inténtalo nuevamente." });
+            }
+
+            let frontData: { data: string; mimeType: string };
+            let sideData: { data: string; mimeType: string };
+
+            try {
+                if (frontImageUrl && sideImageUrl) {
+                    console.log(`[Visagismo AI] Descargando imágenes reales de Storage: Frontal: ${frontImageUrl}, Perfil: ${sideImageUrl}`);
+                    frontData = await fetchImageAsBase64(frontImageUrl);
+                    sideData = await fetchImageAsBase64(sideImageUrl);
+                } else if (frontImage && sideImage) {
+                    console.log('[Visagismo AI] Procesando imágenes base64 recibidas directamente.');
+                    frontData = {
+                        data: frontImage.data,
+                        mimeType: frontImage.mimeType || 'image/jpeg'
+                    };
+                    sideData = {
+                        data: sideImage.data,
+                        mimeType: sideImage.mimeType || 'image/jpeg'
+                    };
+                } else {
+                    return res.status(400).json({ error: "Se requieren ambas fotografías (frente y perfil) para realizar el análisis." });
+                }
+            } catch (downloadError: any) {
+                console.error('[Visagismo AI] Error descargando imágenes:', downloadError);
+                return res.status(500).json({ error: "No fue posible completar el análisis. Inténtalo nuevamente." });
             }
 
             const responseSchema = {
                 type: Type.OBJECT,
                 properties: {
-                    styles: {
+                    analysisId: { type: Type.STRING },
+                    faceShape: { type: Type.STRING },
+                    symmetry: { type: Type.STRING },
+                    jaw: { type: Type.STRING },
+                    hairType: { type: Type.STRING },
+                    recommendedCuts: {
                         type: Type.ARRAY,
-                        description: 'Una lista de exactamente 4 nombres de estilos de corte de cabello recomendados.',
                         items: { type: Type.STRING }
                     },
-                    finalRecommendation: {
-                        type: Type.STRING,
-                        description: 'Una recomendación final y concluyente.'
-                    }
+                    recommendedBeards: {
+                        type: Type.ARRAY,
+                        items: { type: Type.STRING }
+                    },
+                    products: {
+                        type: Type.ARRAY,
+                        items: { type: Type.STRING }
+                    },
+                    analysis: { type: Type.STRING },
+                    confidence: { type: Type.NUMBER }
                 },
-                required: ['styles', 'finalRecommendation']
+                required: [
+                    'faceShape',
+                    'symmetry',
+                    'jaw',
+                    'hairType',
+                    'recommendedCuts',
+                    'recommendedBeards',
+                    'products',
+                    'analysis',
+                    'confidence'
+                ]
             };
 
+            const systemPrompt = `
+            Eres un Asistente Profesional de Visagismo y Estilismo Capilar de clase mundial de la barbería ${shop?.name || 'Barbería AI'}.
+            Tu tarea es analizar las dos fotografías reales del usuario (una de frente y otra de perfil) y realizar un diagnóstico morfológico facial real y sumamente profesional.
+            
+            Debes evaluar detalladamente:
+            1. La forma del rostro (ovalado, redondo, cuadrado, rectangular, corazón, diamante, etc.) y su simetría.
+            2. El contorno de la mandíbula y el mentón, la frente, los pómulos y la nariz.
+            3. El tipo de cabello (lacio, ondulado, rizado, crespo), densidad y textura visible.
+            4. El contorno del perfil y proporciones faciales.
+            
+            Debes recomendar exactamente 4 cortes de cabello masculinos/estilizados que favorezcan enormemente sus rasgos basándote en la teoría del visagismo.
+            También recomienda estilos de barba/cuidado facial y productos de peinado específicos (ceras, arcillas, pomadas, aceites).
+            
+            Tu respuesta debe ser un objeto JSON que cumpla EXACTAMENTE con el siguiente esquema:
+            {
+              "analysisId": "ID único generado",
+              "faceShape": "Descripción técnica de la forma del rostro",
+              "symmetry": "Análisis de simetría y proporciones faciales",
+              "jaw": "Análisis de la línea de la mandíbula y mentón",
+              "hairType": "Diagnóstico del tipo de cabello, textura y densidad",
+              "recommendedCuts": ["Corte 1", "Corte 2", "Corte 3", "Corte 4"],
+              "recommendedBeards": ["Barba/Estilo 1", "Barba/Estilo 2"],
+              "products": ["Producto 1", "Producto 2"],
+              "analysis": "Un análisis completo y unificado que combine toda la información técnica en un tono consultivo profesional y motivador",
+              "confidence": un número decimal de confianza entre 0 y 1
+            }
+            
+            No inventes datos. Si no puedes ver las facciones con claridad, realiza la mejor estimación posible basada en las siluetas visibles y refléjalo en el nivel de confianza.
+            `;
+
+            console.log('[Visagismo AI] Enviando imágenes a Gemini 3.5 Flash para un análisis real...');
+            const startTime = Date.now();
             const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
+                model: 'gemini-3.5-flash',
                 contents: {
                     parts: [
-                        { inlineData: { mimeType: frontImage.mimeType, data: frontImage.data } },
-                        { inlineData: { mimeType: sideImage.mimeType, data: sideImage.data } },
-                        { text: "Analiza estas dos fotos (frente y perfil) de un cliente. Recomienda 4 estilos y una recomendación final. Responde solo con JSON." }
+                        { inlineData: { mimeType: frontData.mimeType, data: frontData.data } },
+                        { inlineData: { mimeType: sideData.mimeType, data: sideData.data } },
+                        { text: "Analiza estas dos fotos reales (frente y perfil) de este cliente y proporciona un análisis morfológico de visagismo completo y recomendaciones reales." }
                     ]
                 },
                 config: {
-                    systemInstruction: createSystemInstruction(shop),
+                    systemInstruction: systemPrompt,
                     responseMimeType: "application/json",
                     responseSchema: responseSchema,
-                    temperature: 0.5,
+                    temperature: 0.4,
                 },
             });
 
-            res.json(JSON.parse(response.text || '{}'));
+            const responseTimeMs = Date.now() - startTime;
+            console.log(`[Visagismo AI] Análisis completado con éxito en ${responseTimeMs}ms`);
+
+            const parsedResult = JSON.parse(response.text || '{}');
+            
+            // Backward compatibility with older frontend variables
+            parsedResult.styles = parsedResult.recommendedCuts || [];
+            parsedResult.finalRecommendation = parsedResult.analysis || '';
+
+            // Durable Cloud Persistence: Save the real analysis to Firestore if active
+            if (firestore) {
+                try {
+                    const docRef = await firestore.collection('analyses').add({
+                        userId: userId || 'guest',
+                        timestamp: new Date().toISOString(),
+                        frontImageUrl: frontImageUrl || 'base64_upload',
+                        sideImageUrl: sideImageUrl || 'base64_upload',
+                        result: parsedResult,
+                        model: 'gemini-3.5-flash',
+                        responseTimeMs,
+                        confidence: parsedResult.confidence || 0.95
+                    });
+                    console.log(`[Visagismo AI] Análisis registrado exitosamente en Firestore con ID: ${docRef.id}`);
+                    parsedResult.analysisId = docRef.id;
+                } catch (dbError: any) {
+                    console.warn('[Visagismo AI] Error al registrar análisis en Firestore:', dbError.message || dbError);
+                }
+            }
+
+            res.json(parsedResult);
         } catch (error: any) {
             console.error('Error in /api/analyze:', error);
-            res.status(500).json({ error: error.message });
+            res.status(500).json({ error: "No fue posible completar el análisis. Inténtalo nuevamente." });
         }
     });
 
@@ -715,31 +831,18 @@ async function startServer() {
             const { image, style, angle, lighting, type, color } = req.body; // type: 'style', 'color', 'highlights'
             
             if (!apiKey || !ai) {
-                const stylePhotos: { [key: string]: string } = {
-                    "Modern Fade con Textura": "https://images.pexels.com/photos/3998429/pexels-photo-3998429.jpeg?auto=compress&cs=tinysrgb&w=800",
-                    "Classic Pompadour Modernizado": "https://images.pexels.com/photos/2061821/pexels-photo-2061821.jpeg?auto=compress&cs=tinysrgb&w=800",
-                    "Taper Fade con Flequillo Corto": "https://images.pexels.com/photos/897251/pexels-photo-897251.jpeg?auto=compress&cs=tinysrgb&w=800",
-                    "Low Fade con Textura Desordenada": "https://images.pexels.com/photos/1805600/pexels-photo-1805600.jpeg?auto=compress&cs=tinysrgb&w=800"
-                };
-                const coloredPhotos: { [key: string]: string } = {
-                    "Rubio": "https://images.pexels.com/photos/3160453/pexels-photo-3160453.jpeg?auto=compress&cs=tinysrgb&w=800",
-                    "Platinado": "https://images.pexels.com/photos/3160453/pexels-photo-3160453.jpeg?auto=compress&cs=tinysrgb&w=800",
-                    "Castaño": "https://images.pexels.com/photos/897251/pexels-photo-897251.jpeg?auto=compress&cs=tinysrgb&w=800",
-                    "Rojo": "https://images.pexels.com/photos/853427/pexels-photo-853427.jpeg?auto=compress&cs=tinysrgb&w=800",
-                    "Negro": "https://images.pexels.com/photos/1805600/pexels-photo-1805600.jpeg?auto=compress&cs=tinysrgb&w=800"
-                };
-
-                let imgUrl = stylePhotos[style] || stylePhotos["Modern Fade con Textura"];
-                if (type === 'color' && color && coloredPhotos[color]) {
-                    imgUrl = coloredPhotos[color];
-                } else if (type === 'highlights' && color && coloredPhotos[color]) {
-                    imgUrl = coloredPhotos[color];
-                }
-                return res.json({ image: imgUrl });
+                return res.status(500).json({ error: "No fue posible generar la simulación de estilo. Inténtalo nuevamente." });
             }
 
             let prompt = "";
-            const imagePart = { inlineData: { data: image.data, mimeType: image.mimeType } };
+            let imagePart: any;
+            if (image && image.data && (image.data.startsWith('http://') || image.data.startsWith('https://'))) {
+                console.log(`[Hair Simulation AI] Descargando imagen origen de Storage URL: ${image.data}`);
+                const downloaded = await fetchImageAsBase64(image.data);
+                imagePart = { inlineData: { data: downloaded.data, mimeType: downloaded.mimeType } };
+            } else {
+                imagePart = { inlineData: { data: image.data, mimeType: image.mimeType } };
+            }
 
             if (type === 'style') {
                 const angleInstruction = {
@@ -757,8 +860,9 @@ async function startServer() {
                 prompt = `Añade mechas de color '${color}' al cabello en la foto. El resultado debe ser fotorrealista, manteniendo el peinado y el color base.`;
             }
 
+            console.log(`[Hair Simulation AI] Generando imagen con prompt: "${prompt}" usando gemini-3.1-flash-image...`);
             const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash-image',
+                model: 'gemini-3.1-flash-image',
                 contents: { parts: [imagePart, { text: prompt }] },
                 config: {
                     responseModalities: [Modality.IMAGE],
@@ -778,14 +882,15 @@ async function startServer() {
             }
 
             if (!generatedImageBase64) {
-                throw new Error("No image generated");
+                throw new Error("No image generated by Gemini");
             }
 
+            console.log('[Hair Simulation AI] Simulación de peinado generada con éxito.');
             res.json({ image: generatedImageBase64 });
 
         } catch (error: any) {
             console.error('Error in /api/generate-image:', error);
-            res.status(500).json({ error: error.message });
+            res.status(500).json({ error: "No fue posible generar la simulación de estilo. Inténtalo nuevamente." });
         }
     });
 

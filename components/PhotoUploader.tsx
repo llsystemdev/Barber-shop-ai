@@ -164,9 +164,10 @@ interface PhotoUploaderProps {
   isProcessing: boolean;
   isGuest?: boolean;
   simulationsCount?: number;
+  error?: string | null;
 }
 
-export const PhotoUploader: React.FC<PhotoUploaderProps> = ({ onPhotosReady, isProcessing, isGuest, simulationsCount = 0 }) => {
+export const PhotoUploader: React.FC<PhotoUploaderProps> = ({ onPhotosReady, isProcessing, isGuest, simulationsCount = 0, error }) => {
   const [frontPhoto, setFrontPhoto] = useState<File | null>(null);
   const [sidePhoto, setSidePhoto] = useState<File | null>(null);
 
@@ -189,6 +190,12 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({ onPhotosReady, isP
         <h2 className="text-2xl font-bold text-gray-800 mb-2">Descubre tu Estilo Ideal</h2>
         <p className="text-gray-600 mb-4 text-center">Sube dos fotos para una recomendación de IA personalizada.</p>
         
+        {error && (
+          <div className="w-full max-w-md bg-red-50 border-2 border-red-200 text-red-700 font-black px-5 py-3 rounded-2xl text-[10px] uppercase tracking-wider text-center mb-6 animate-pulse">
+            ⚠️ {error}
+          </div>
+        )}
+
         {isGuest && (
           <div className="bg-red-50 border border-red-100 text-red-600 font-bold px-4 py-2 rounded-xl text-[10px] uppercase tracking-wider mb-6 animate-pulse">
             ⚡ Modo Invitado: {remaining} de 3 simulaciones gratuitas restantes

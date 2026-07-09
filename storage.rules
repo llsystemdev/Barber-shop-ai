@@ -1,10 +1,9 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // Haircuts gallery can be viewed by anyone, written by authenticated users
+    // Haircuts gallery can be viewed and written by anyone (including guest users for visagismo)
     match /haircuts/{allPaths=**} {
-      allow read: if true;
-      allow write: if request.auth != null;
+      allow read, write: if true;
     }
     
     // Avatars can be viewed by anyone, written by authenticated users

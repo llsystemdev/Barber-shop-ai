@@ -7,7 +7,8 @@ import {
     createDefaultShopForUser,
     uploadBase64Image,
     updateShop,
-    getAllShops
+    getAllShops,
+    uploadShopImage
 } from './services/barberShopService';
 import { onAuthStateChanged, logoutUser as localLogout, loginWithGoogle } from './services/authService';
 
@@ -84,6 +85,7 @@ const App: React.FC = () => {
   
   const [selectedImageForModal, setSelectedImageForModal] = useState<{url: string, caption: string} | null>(null);
   const [isSavingResults, setIsSavingResults] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   const unsubscribeBookingsRef = useRef<(() => void) | null>(null);
 
@@ -300,17 +302,22 @@ const App: React.FC = () => {
           }
       }
       setMirrorState('processing');
+      setAnalysisError(null);
       try {
-          const frontBase64 = await fileToBase64(front);
-          const sideBase64 = await fileToBase64(side);
+          console.log('[Visagismo AI] Subiendo foto de frente a Firebase Storage...');
+          const frontUrl = await uploadShopImage(front, currentShop.id, 'galery');
+          console.log('[Visagismo AI] Subiendo foto de perfil a Firebase Storage...');
+          const sideUrl = await uploadShopImage(side, currentShop.id, 'galery');
           
-          setFrontImage(frontBase64);
-          setSideImage(sideBase64);
+          setFrontImage(frontUrl);
+          setSideImage(sideUrl);
 
+          console.log('[Visagismo AI] Enviando fotos a Gemini para análisis morfológico de visagismo...');
           const analysis = await getStyleRecommendations(
-              { inlineData: { mimeType: front.type, data: frontBase64.split(',')[1] } },
-              { inlineData: { mimeType: side.type, data: sideBase64.split(',')[1] } },
-              currentShop
+              frontUrl,
+              sideUrl,
+              currentShop,
+              currentUser?.id
           );
 
           setSuggestedStyles(analysis.styles);
@@ -322,12 +329,6 @@ const App: React.FC = () => {
               setGuestSimulationsCount(nextCount);
               localStorage.setItem('guest_simulations_count', nextCount.toString());
               if (nextCount >= 3) {
-                  // After completing their 3rd simulation, trigger the sign up modal to show.
-                  // We can let them view the result but show the signup overlay on top,
-                  // or prompt them directly once results are loaded.
-                  // Let's set a small timeout or wait a bit so they see the result starting, then trigger!
-                  // Or simply let them view the result, but when they close or click next, show it.
-                  // Actually, showing it right after results render (after images start generating) is extremely engaging!
                   setTimeout(() => {
                       setShowGuestLimitModal(true);
                   }, 1500);
@@ -335,14 +336,14 @@ const App: React.FC = () => {
           }
 
           for (let i = 0; i < analysis.styles.length; i++) {
-              triggerImageGeneration(i, analysis.styles[i], 'Frente', 'Natural', frontBase64);
+              triggerImageGeneration(i, analysis.styles[i], 'Frente', 'Natural', frontUrl);
               await new Promise(r => setTimeout(r, 600)); 
           }
           
       } catch (e) {
-          console.error(e);
+          console.error('[Visagismo Error]', e);
           setMirrorState('initial');
-          alert("Error en el análisis facial. Inténtalo de nuevo.");
+          setAnalysisError("No fue posible completar el análisis. Inténtalo nuevamente.");
       }
   };
 
@@ -570,6 +571,7 @@ const App: React.FC = () => {
                     onImageClick={(url, caption) => setSelectedImageForModal({url, caption})}
                     isGuest={currentUser?.isGuest}
                     simulationsCount={guestSimulationsCount}
+                    error={analysisError}
                 />
             )}
             {activeView === 'booking' && (

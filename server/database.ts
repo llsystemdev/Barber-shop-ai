@@ -44,7 +44,7 @@ try {
 }
 
 // Get Firestore reference
-const firestore = getApps().length > 0
+export const firestore = getApps().length > 0
   ? (firebaseConfig.firestoreDatabaseId
       ? getFirestore(getApps()[0], firebaseConfig.firestoreDatabaseId)
       : getFirestore(getApps()[0]))

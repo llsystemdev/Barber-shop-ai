@@ -27,6 +27,7 @@ interface MirrorViewProps {
     onImageClick: (url: string, caption: string) => void;
     isGuest?: boolean;
     simulationsCount?: number;
+    error?: string | null;
 }
 
 const MirrorView: React.FC<MirrorViewProps> = (props) => {
@@ -39,6 +40,7 @@ const MirrorView: React.FC<MirrorViewProps> = (props) => {
             isProcessing={props.isAiLoading} 
             isGuest={props.isGuest}
             simulationsCount={props.simulationsCount}
+            error={props.error}
           />
         )}
         {props.appState === 'processing' && (

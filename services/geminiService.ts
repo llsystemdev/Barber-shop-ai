@@ -16,40 +16,33 @@ const coloredPhotos: { [key: string]: string } = {
     "Negro": "https://images.pexels.com/photos/1805600/pexels-photo-1805600.jpeg?auto=compress&cs=tinysrgb&w=800"
 };
 
-export async function getStyleRecommendations(frontImage: any, sideImage: any, shop: BarberShop): Promise<{ styles: string[], finalRecommendation: string }> {
+export async function getStyleRecommendations(
+    frontImageUrl: string, 
+    sideImageUrl: string, 
+    shop: BarberShop, 
+    userId?: string
+): Promise<{ styles: string[], finalRecommendation: string, [key: string]: any }> {
     try {
         const response = await fetch('/api/analyze', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                frontImage: {
-                    mimeType: frontImage.inlineData?.mimeType || 'image/jpeg',
-                    data: frontImage.inlineData?.data || frontImage
-                },
-                sideImage: {
-                    mimeType: sideImage.inlineData?.mimeType || 'image/jpeg',
-                    data: sideImage.inlineData?.data || sideImage
-                },
-                shop
+                frontImageUrl,
+                sideImageUrl,
+                shop,
+                userId
             })
         });
 
         if (!response.ok) {
-            throw new Error('Error al analizar la imagen en el servidor');
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Error al analizar la imagen en el servidor');
         }
 
         return await response.json();
-    } catch (error) {
-        console.error('getStyleRecommendations failed, falling back to mock:', error);
-        return {
-            styles: [
-                "Modern Fade con Textura",
-                "Classic Pompadour Modernizado",
-                "Taper Fade con Flequillo Corto",
-                "Low Fade con Textura Desordenada"
-            ],
-            finalRecommendation: `Basado en la estructura de tu rostro y el contorno de tus facciones, un corte con degradado (Fade) acentuará tu línea de la mandíbula aportando definición y carácter. Recomendamos usar cera mate (Clay) de fijación fuerte para peinar el cabello superior hacia adelante o hacia un lado para lograr el máximo dinamismo y textura.`
-        };
+    } catch (error: any) {
+        console.error('getStyleRecommendations failed:', error);
+        throw error;
     }
 }
 
@@ -96,22 +89,15 @@ export async function generateStyledImage(
         });
 
         if (!response.ok) {
-            throw new Error('Error al generar la imagen estilizada en el servidor');
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Error al generar la imagen estilizada en el servidor');
         }
 
         const data = await response.json();
-        return data.image; // returns base64 image or fallback image URL
+        return data.image; // returns base64 image 
     } catch (error) {
-        console.error('generateStyledImage failed, falling back to mock:', error);
-        
-        // Priority: if color is specified, return appropriate colored photo, else style photo
-        let resultUrl = stylePhotos[style] || stylePhotos.default;
-        if (color && coloredPhotos[color]) {
-            resultUrl = coloredPhotos[color];
-        } else if (highlights && coloredPhotos[highlights]) {
-            resultUrl = coloredPhotos[highlights];
-        }
-        return resultUrl;
+        console.error('generateStyledImage failed:', error);
+        throw error;
     }
 }
 

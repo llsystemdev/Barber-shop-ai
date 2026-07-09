@@ -43,5 +43,10 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow write: if isAuthenticated() && (request.resource.data.userId == request.auth.uid || resource == null);
     }
+
+    // Mirror Visagismo Analyses
+    match /analyses/{analysisId} {
+      allow read, write: if true; // Both guests and authenticated users can save/read their visagismo analysis
+    }
   }
 }
