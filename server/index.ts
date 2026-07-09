@@ -299,11 +299,11 @@ async function startServer() {
     // 3. Auth Google URL: Devuelve la URL de autorización para el login de Google
     app.get('/api/auth/google/url', async (req, res) => {
         try {
-            const redirect_uri = req.query.redirect_uri as string;
+            const redirect_uri = (req.query.redirect_uri as string) || (req.query.callback as string);
             const role = (req.query.role || 'shopOwner') as string;
 
             if (!redirect_uri) {
-                return res.status(400).json({ error: 'Falta el parámetro obligatorio redirect_uri' });
+                return res.status(400).json({ error: 'Falta el parámetro obligatorio redirect_uri o callback' });
             }
 
             const googleClientId = process.env.GOOGLE_CLIENT_ID;
