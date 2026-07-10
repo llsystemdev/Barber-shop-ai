@@ -76,72 +76,99 @@ export const loginWithEmail = async (email: string, password: string) => {
 
 export const loginWithGoogle = async (): Promise<{ data: any; error: any }> => {
   const role = localStorage.getItem('userRole') || 'shopOwner';
-  try {
-    const userCredential = await signInWithPopup(auth, googleProvider);
-    const firebaseUser = userCredential.user;
-    
-    const appUser: AppUser = {
-      id: firebaseUser.uid,
-      name: firebaseUser.displayName || 'Usuario Google',
-      email: firebaseUser.email || '',
-      role: role as any,
-      avatarUrl: firebaseUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${firebaseUser.uid}`
-    };
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
-    // Synchronize the authenticated user profile with Firestore and local backend DB
-    await fetch('/api/auth/sync-firebase-user', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user: appUser })
-    });
-
-    setActiveUser(appUser);
-    return { data: { user: appUser }, error: null };
-  } catch (err: any) {
-    console.warn('[loginWithGoogle] Standard Firebase popup failed, trying server-side Google OAuth fallback:', err);
+  if (isLocalhost) {
     try {
-      const redirectUri = `${window.location.origin}/api/auth/google/callback`;
-      const response = await fetch(`/api/auth/google/url?redirect_uri=${encodeURIComponent(redirectUri)}&role=${encodeURIComponent(role)}`);
-      if (!response.ok) {
-        throw new Error('No se pudo obtener la URL de inicio de sesión de Google desde el servidor.');
-      }
-      const { url } = await response.json();
+      const userCredential = await signInWithPopup(auth, googleProvider);
+      const firebaseUser = userCredential.user;
       
-      const width = 500;
-      const height = 650;
-      const left = window.screenX + (window.outerWidth - width) / 2;
-      const top = window.screenY + (window.outerHeight - height) / 2;
-      
-      const popup = window.open(url, 'GoogleAuth', `width=${width},height=${height},left=${left},top=${top}`);
-      if (!popup) {
-        throw new Error('El bloqueador de ventanas emergentes impidió abrir el inicio de sesión. Por favor, permítelo.');
-      }
+      const appUser: AppUser = {
+        id: firebaseUser.uid,
+        name: firebaseUser.displayName || 'Usuario Google',
+        email: firebaseUser.email || '',
+        role: role as any,
+        avatarUrl: firebaseUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${firebaseUser.uid}`
+      };
 
-      return new Promise((resolve) => {
-        const handler = async (event: MessageEvent) => {
-          if (event.data && event.data.type === 'GOOGLE_AUTH_SUCCESS') {
-            window.removeEventListener('message', handler);
-            clearInterval(checkClosed);
-            const appUser = event.data.user;
-            setActiveUser(appUser);
-            resolve({ data: { user: appUser }, error: null });
-          }
-        };
-        
-        window.addEventListener('message', handler);
-        
-        const checkClosed = setInterval(() => {
-          if (!popup || popup.closed) {
-            clearInterval(checkClosed);
-            window.removeEventListener('message', handler);
-            resolve({ data: null, error: new Error('La ventana de inicio de sesión fue cerrada') });
-          }
-        }, 1000);
+      // Synchronize the authenticated user profile with Firestore and local backend DB
+      await fetch('/api/auth/sync-firebase-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user: appUser })
       });
-    } catch (fallbackErr: any) {
-      console.error('[loginWithGoogle Fallback Error]', fallbackErr);
-      return { data: null, error: fallbackErr };
+
+      setActiveUser(appUser);
+      return { data: { user: appUser }, error: null };
+    } catch (err: any) {
+      console.warn('[loginWithGoogle] Standard Firebase popup failed on localhost, trying server-side Google OAuth fallback:', err);
     }
+  }
+
+  // Fallback / Production Google OAuth flow:
+  // 1. Open a blank popup synchronously to guarantee it is NOT blocked by browser pop-up blockers!
+  const width = 500;
+  const height = 650;
+  const left = window.screenX + (window.outerWidth - width) / 2;
+  const top = window.screenY + (window.outerHeight - height) / 2;
+  
+  const popup = window.open('about:blank', 'GoogleAuth', `width=${width},height=${height},left=${left},top=${top}`);
+  if (!popup) {
+    return { data: null, error: new Error('El bloqueador de ventanas emergentes impidió abrir el inicio de sesión con Google. Por favor, permítelo en tu navegador y vuelve a intentarlo.') };
+  }
+
+  try {
+    const redirectUri = `${window.location.origin}/api/auth/google/callback`;
+    const response = await fetch(`/api/auth/google/url?redirect_uri=${encodeURIComponent(redirectUri)}&role=${encodeURIComponent(role)}`);
+    if (!response.ok) {
+      popup.close();
+      throw new Error('No se pudo obtener la URL de inicio de sesión de Google desde el servidor.');
+    }
+    const { url } = await response.json();
+    
+    // 2. Set the pre-opened popup location to the Google OAuth authorization URL
+    popup.location.href = url;
+
+    return new Promise((resolve) => {
+      const handler = async (event: MessageEvent) => {
+        // Validate origin is from the same site
+        if (event.origin !== window.location.origin) return;
+
+        if (event.data && event.data.type === 'GOOGLE_AUTH_SUCCESS') {
+          window.removeEventListener('message', handler);
+          clearInterval(checkClosed);
+          const appUser = event.data.user;
+          setActiveUser(appUser);
+          resolve({ data: { user: appUser }, error: null });
+        }
+      };
+      
+      window.addEventListener('message', handler);
+      
+      const checkClosed = setInterval(() => {
+        // Check if localStorage was already updated (double-safety fallback if postMessage was blocked)
+        const saved = localStorage.getItem('mock_user_session');
+        if (saved) {
+          try {
+            const appUser = JSON.parse(saved);
+            clearInterval(checkClosed);
+            window.removeEventListener('message', handler);
+            resolve({ data: { user: appUser }, error: null });
+            return;
+          } catch (e) {}
+        }
+
+        if (!popup || popup.closed) {
+          clearInterval(checkClosed);
+          window.removeEventListener('message', handler);
+          resolve({ data: null, error: new Error('La ventana de inicio de sesión fue cerrada') });
+        }
+      }, 1000);
+    });
+  } catch (fallbackErr: any) {
+    if (popup) popup.close();
+    console.error('[loginWithGoogle Fallback Error]', fallbackErr);
+    return { data: null, error: fallbackErr };
   }
 };
 

@@ -475,17 +475,35 @@ async function startServer() {
                         <p style="font-size: 14px; color: #6B7280;">Esta ventana se cerrará automáticamente en un momento.</p>
                     </div>
                     <script>
+                        // Guardar en localStorage de todos modos, ya que comparten dominio y así es más robusto
+                        try {
+                            localStorage.setItem('mock_user_session', JSON.stringify(${JSON.stringify({
+                                id: user.id,
+                                name: user.name,
+                                role: user.role,
+                                avatarUrl: user.avatarUrl,
+                                shopId: user.shopId
+                            })}));
+                            localStorage.setItem('userRole', '${user.role}');
+                        } catch (e) {
+                            console.error('Error guardando en localStorage:', e);
+                        }
+
                         if (window.opener) {
-                            window.opener.postMessage({
-                                type: 'GOOGLE_AUTH_SUCCESS',
-                                user: ${JSON.stringify({
-                                    id: user.id,
-                                    name: user.name,
-                                    role: user.role,
-                                    avatarUrl: user.avatarUrl,
-                                    shopId: user.shopId
-                                })}
-                            }, '*');
+                            try {
+                                window.opener.postMessage({
+                                    type: 'GOOGLE_AUTH_SUCCESS',
+                                    user: ${JSON.stringify({
+                                        id: user.id,
+                                        name: user.name,
+                                        role: user.role,
+                                        avatarUrl: user.avatarUrl,
+                                        shopId: user.shopId
+                                    })}
+                                }, '*');
+                            } catch (e) {
+                                console.error('Error enviando postMessage:', e);
+                            }
                             window.close();
                         } else {
                             window.location.href = '/';
