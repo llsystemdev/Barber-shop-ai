@@ -311,22 +311,8 @@ async function startServer() {
                 return res.status(400).json({ error: 'GOOGLE_CLIENT_ID no está configurado en el servidor' });
             }
 
-            // Normalización y reescritura de redirect_uri para dominios personalizados (como barber-shop-ai.app)
-            let finalRedirectUri = redirect_uri;
-            try {
-                const parsedUrl = new URL(redirect_uri);
-                const hostname = parsedUrl.hostname;
-                const isAllowedDomain = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.endsWith('.run.app');
-                if (!isAllowedDomain && process.env.APP_URL) {
-                    const appUrlObj = new URL(process.env.APP_URL);
-                    parsedUrl.protocol = appUrlObj.protocol;
-                    parsedUrl.host = appUrlObj.host;
-                    finalRedirectUri = parsedUrl.toString();
-                    console.log(`[OAuth] Rewrote custom domain redirect_uri from ${redirect_uri} to ${finalRedirectUri}`);
-                }
-            } catch (err) {
-                console.warn('[OAuth] Error parsing or rewriting redirect_uri:', err);
-            }
+            // Usar la redirect_uri recibida directamente sin reescrituras forzadas para soportar dominios personalizados con el Client ID del usuario
+            const finalRedirectUri = redirect_uri;
 
             const params = new URLSearchParams({
                 client_id: googleClientId,
@@ -371,19 +357,10 @@ async function startServer() {
                 return res.status(500).send('GOOGLE_CLIENT_ID o GOOGLE_CLIENT_SECRET no están configurados en el servidor.');
             }
 
-            // Reconstruir la redirect_uri exacta para el canje del código
+            // Reconstruir la redirect_uri exacta basándonos en la petición actual para que coincida dinámicamente con el dominio que originó la autenticación
             const protocol = req.secure || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
             const host = req.headers['x-forwarded-host'] || req.headers.host || '';
-            let redirectUri = `${protocol}://${host}/api/auth/google/callback`;
-            const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
-            if (!isLocal && process.env.APP_URL) {
-                try {
-                    const appUrlObj = new URL(process.env.APP_URL);
-                    redirectUri = `${appUrlObj.protocol}//${appUrlObj.host}/api/auth/google/callback`;
-                } catch (err) {
-                    console.warn('[OAuth] Error parsing APP_URL for callback:', err);
-                }
-            }
+            const redirectUri = `${protocol}://${host}/api/auth/google/callback`;
 
             // Canjear el código por tokens
             const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
