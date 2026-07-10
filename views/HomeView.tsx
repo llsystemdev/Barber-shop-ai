@@ -155,12 +155,13 @@ const HomeView: React.FC<HomeViewProps> = ({ onShowLogin, onGoHome, onStartGuest
             </span>
           </button>
           
-          <nav className="hidden md:flex items-center space-x-8 text-sm font-semibold text-slate-300">
+          <nav className="hidden md:flex items-center space-x-6 lg:space-x-8 text-sm font-semibold text-slate-300">
             <a href="#beneficios" className="hover:text-red-500 transition-colors">Beneficios</a>
             <a href="#caracteristicas" className="hover:text-red-500 transition-colors">Características</a>
             <a href="#testimonios" className="hover:text-red-500 transition-colors">Testimonios</a>
             <a href="#planes" className="hover:text-red-500 transition-colors">Planes</a>
-            <a href="#faq" className="hover:text-red-500 transition-colors">Preguntas Frecuentes</a>
+            <a href="#nosotros" className="hover:text-red-500 transition-colors">Sobre Nosotros</a>
+            <a href="#faq" className="hover:text-red-500 transition-colors">FAQ</a>
           </nav>
 
           <button 
@@ -468,6 +469,95 @@ const HomeView: React.FC<HomeViewProps> = ({ onShowLogin, onGoHome, onStartGuest
         </div>
       </section>
 
+      {/* About Section (Sobre Nosotros) */}
+      <section id="nosotros" className="py-24 bg-gradient-to-b from-slate-900/40 to-slate-950 border-t border-slate-900 relative">
+        {/* Decorative background glow */}
+        <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-[350px] h-[350px] bg-red-500/5 rounded-full blur-[100px] pointer-events-none"></div>
+        <div className="absolute bottom-10 right-10 w-[250px] h-[250px] bg-indigo-500/5 rounded-full blur-[80px] pointer-events-none"></div>
+
+        <div className="max-w-7xl mx-auto px-6 relative z-10">
+          <div className="text-center max-w-3xl mx-auto space-y-4 mb-16">
+            <span className="text-xs font-black tracking-[0.25em] text-red-500 uppercase">Sobre Nosotros</span>
+            <h2 className="text-3xl md:text-5xl font-black uppercase tracking-tight">El Corazón detrás de la Innovación</h2>
+            <p className="text-slate-400 text-base md:text-lg">
+              Fusionando la herencia artesanal de la barbería clásica con la potencia revolucionaria de la inteligencia artificial.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+            {/* Foto del Fundador con animaciones y efectos */}
+            <div className="lg:col-span-5 flex justify-center">
+              <div className="relative group max-w-sm w-full">
+                {/* Glow effect on hover */}
+                <div className="absolute -inset-1.5 bg-gradient-to-r from-red-600 to-indigo-600 rounded-3xl blur opacity-30 group-hover:opacity-60 transition duration-1000 group-hover:duration-200"></div>
+                
+                {/* Main Card */}
+                <div className="relative bg-slate-900 border border-slate-800 rounded-3xl p-4 overflow-hidden shadow-2xl">
+                  <div className="aspect-[3/4] rounded-2xl overflow-hidden relative bg-slate-950">
+                    <img 
+                      src="https://firebasestorage.googleapis.com/v0/b/barber-sho-ai.firebasestorage.app/o/Daniel%20Ernesto%20Archivol.jpeg?alt=media&token=5a0247cb-b7da-40d5-badd-849c623cef31" 
+                      alt="Daniel Ernesto Archivol" 
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-80"></div>
+                    
+                    {/* Badge */}
+                    <div className="absolute bottom-4 left-4 right-4 bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-xl p-3">
+                      <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Fundador & Visionario</p>
+                      <h4 className="text-lg font-black uppercase text-white">Daniel Ernesto Archivol</h4>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Historia y Visión */}
+            <div className="lg:col-span-7 space-y-8">
+              <div className="space-y-4">
+                <span className="text-xs font-bold text-red-500 uppercase tracking-widest block">Mensaje del Fundador</span>
+                <h3 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-white">
+                  Redefiniendo el Visagismo y el Estilo Masculino
+                </h3>
+                <p className="text-slate-300 leading-relaxed text-sm md:text-base">
+                  Como apasionado de la tecnología y el estilismo, fundé Barber Shop AI con un objetivo claro: empoderar a los barberos tradicionales y modernos con herramientas del futuro que mejoren la experiencia del cliente y multipliquen el rendimiento del negocio.
+                </p>
+                <p className="text-slate-400 leading-relaxed text-sm md:text-base">
+                  Nuestra plataforma no solo simplifica la agenda diaria o automatiza los recordatorios de citas; redefinimos la consulta de estilo a través de un motor de Inteligencia Artificial que analiza los rasgos faciales únicos de cada persona para simular cortes y barbas de forma realista. Esto eleva la confianza del cliente y consagra al barbero como un verdadero artista tecnológico.
+                </p>
+              </div>
+
+              {/* Quote */}
+              <div className="border-l-4 border-red-600 pl-6 py-2 bg-slate-900/40 rounded-r-2xl pr-4">
+                <p className="italic text-slate-300 text-sm md:text-base font-medium leading-relaxed">
+                  &ldquo;La tecnología no viene a reemplazar el arte de la tijera y la navaja, sino a expandir los límites de la creatividad y dar la máxima certeza a cada cliente.&rdquo;
+                </p>
+                <span className="block mt-2 text-xs font-black uppercase tracking-widest text-red-500">— Daniel Ernesto Archivol</span>
+              </div>
+
+              {/* Pilares */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4">
+                <div className="p-4 bg-slate-900/30 border border-slate-900/60 rounded-2xl">
+                  <div className="text-xl mb-1">🎯</div>
+                  <h5 className="font-black text-xs uppercase tracking-wider text-white mb-1">Misión</h5>
+                  <p className="text-[11px] text-slate-500 leading-normal font-medium">Digitalizar barberías locales dándoles herramientas de nivel global.</p>
+                </div>
+                <div className="p-4 bg-slate-900/30 border border-slate-900/60 rounded-2xl">
+                  <div className="text-xl mb-1">👁️‍عون</div>
+                  <h5 className="font-black text-xs uppercase tracking-wider text-white mb-1">Visión</h5>
+                  <p className="text-[11px] text-slate-500 leading-normal font-medium">Liderar la innovación en simulación de estilo e inteligencia artificial de visagismo.</p>
+                </div>
+                <div className="p-4 bg-slate-900/30 border border-slate-900/60 rounded-2xl">
+                  <div className="text-xl mb-1">🤝</div>
+                  <h5 className="font-black text-xs uppercase tracking-wider text-white mb-1">Valores</h5>
+                  <p className="text-[11px] text-slate-500 leading-normal font-medium">Pasión por la excelencia, soporte incondicional y respeto por el arte tradicional.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="bg-slate-950 border-t border-slate-900 py-16">
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
@@ -483,6 +573,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onShowLogin, onGoHome, onStartGuest
               <li><a href="#beneficios" className="hover:text-red-500 transition-colors">Beneficios</a></li>
               <li><a href="#caracteristicas" className="hover:text-red-500 transition-colors">Características</a></li>
               <li><a href="#planes" className="hover:text-red-500 transition-colors">Planes y Precios</a></li>
+              <li><a href="#nosotros" className="hover:text-red-500 transition-colors">Sobre Nosotros</a></li>
             </ul>
           </div>
           <div>
