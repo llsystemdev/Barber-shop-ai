@@ -375,7 +375,9 @@ const App: React.FC = () => {
         const targetImage = imageOverride || (angle === 'Perfil' ? sideImage : frontImage);
         if (!targetImage) return;
 
-        const result = await generateStyledImage(targetImage, 'image/jpeg', style, angle, lighting, color, highlights);
+        const masterReference = generatedImages[index % 4] || undefined;
+
+        const result = await generateStyledImage(targetImage, 'image/jpeg', style, angle, lighting, color, highlights, masterReference);
         
         setGeneratedImages(prev => {
             const next = [...prev];
@@ -582,7 +584,10 @@ const App: React.FC = () => {
                     }}
                     onColorChange={handleColorChange}
                     onHighlightsChange={handleHighlightsChange}
-                    onRegenerateImage={(i) => triggerImageGeneration(i, suggestedStyles[i % 4], activeAngle === 'side' ? 'Perfil' : 'Frente', activeLighting, undefined, activeColor, activeHighlights)}
+                    onRegenerateImage={(i) => {
+                        const angleLabel = activeAngle === 'front' ? 'Frente' : activeAngle === 'side' ? 'Perfil' : 'Tres Cuartos';
+                        triggerImageGeneration(i, suggestedStyles[i % 4], angleLabel, activeLighting, undefined, activeColor, activeHighlights);
+                    }}
                     onShare={handleSaveResults}
                     onUploadNew={() => { setMirrorState('initial'); setFrontImage(null); setSideImage(null); }}
                     onImageClick={(url, caption) => setSelectedImageForModal({url, caption})}

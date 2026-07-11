@@ -53,7 +53,8 @@ export async function generateStyledImage(
     angle: string, 
     lighting: string,
     color?: string,
-    highlights?: string
+    highlights?: string,
+    masterReferenceImage?: string
 ): Promise<string> {
     try {
         let type: 'style' | 'color' | 'highlights' = 'style';
@@ -84,7 +85,8 @@ export async function generateStyledImage(
                 angle,
                 lighting,
                 type,
-                color: targetColor
+                color: targetColor,
+                masterReferenceImage
             })
         });
 

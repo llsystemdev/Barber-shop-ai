@@ -1,7 +1,7 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper functions
+    // Función de ayuda para verificar autenticación
     function isAuthenticated() {
       return request.auth != null;
     }
@@ -10,43 +10,43 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // Users Collection rules
+    // Colección de Usuarios
     match /users/{userId} {
       allow read: if isAuthenticated();
       allow write: if isAuthenticated() && (request.auth.uid == userId || resource == null);
     }
 
-    // Shops (Barber shops tenants) rules
+    // Barberías (Shops)
     match /shops/{shopId} {
-      allow read: if true; // Anybody can look up barber shops and booking details
-      allow write: if isAuthenticated();
+      allow read: if true; // Cualquier cliente puede ver las barberías
+      allow write: if isAuthenticated(); // Solo dueños registrados pueden modificarlas
     }
 
-    // Bookings (Appointments) rules
+    // Citas (Bookings)
     match /bookings/{bookingId} {
       allow read: if true;
-      allow write: if true; // Both guests and logged-in clients/owners can reserve slots
+      allow write: if true; // Permite reservas tanto de clientes registrados como de invitados
     }
 
-    // Security logs for GDPR & Auditing
+    // Registros de Seguridad (GDPR / Auditorías)
     match /securityLogs/{logId} {
       allow read, write: if isAuthenticated();
     }
 
-    // Support ticketing rules
+    // Tickets de Soporte
     match /supportTickets/{ticketId} {
       allow read, write: if isAuthenticated();
     }
 
-    // User consent and GDPR compliance rules
+    // Consentimiento de Datos (GDPR)
     match /userConsents/{consentId} {
       allow read: if isAuthenticated();
       allow write: if isAuthenticated() && (request.resource.data.userId == request.auth.uid || resource == null);
     }
 
-    // Mirror Visagismo Analyses
+    // Análisis de Visajismo y Estilos (Mirror Visagismo - requerido para guardar simulaciones)
     match /analyses/{analysisId} {
-      allow read, write: if true; // Both guests and authenticated users can save/read their visagismo analysis
+      allow read, write: if true; // Permite a usuarios e invitados guardar y leer sus análisis de estilo
     }
   }
 }

@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import crypto from 'crypto';
 import https from 'https';
+import fs from 'fs/promises';
 import { getDb, saveDb, hashPassword, generateSalt, firestore, storageBucket, firebaseConfig, isFirestoreReady, disableFirestore } from './database';
 import Stripe from 'stripe';
 
@@ -137,6 +138,9 @@ async function startServer() {
     // Enable CORS and JSON body parsing (large limit for images)
     app.use(cors());
     app.use(express.json({ limit: '50mb' }) as any);
+    
+    // Serve uploaded images statically
+    app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
     
     // Enterprise Input Sanitization
     app.use(sanitizeInput);
@@ -784,11 +788,6 @@ async function startServer() {
 
     // Helper to upload base64 to Firebase Storage on the backend
     async function uploadBase64ToStorageBackend(base64: string, shopId: string, bucketType: string): Promise<string> {
-        if (!storageBucket) {
-            console.warn('[Backend Upload] storageBucket is not initialized, falling back to base64');
-            return base64;
-        }
-
         try {
             const match = base64.match(/^data:([^;]+);base64,(.+)$/);
             if (!match) {
@@ -804,51 +803,67 @@ async function startServer() {
             const targetFolder = bucketType === 'galery' ? 'haircuts' : 'avatars';
             const fileName = `${targetFolder}/${shopId}/${Date.now()}-${randomId}.${fileExtension}`;
 
-            const fileRef = storageBucket.file(fileName);
-            await fileRef.save(buffer, {
-                metadata: {
-                    contentType: mimeType,
-                }
-            });
+            // Attempt Firebase Storage if available
+            if (storageBucket) {
+                try {
+                    const fileRef = storageBucket.file(fileName);
+                    await fileRef.save(buffer, {
+                        metadata: {
+                            contentType: mimeType,
+                        }
+                    });
 
-            // Try to make public
-            try {
-                await fileRef.makePublic();
-            } catch (makePublicErr) {
-                console.warn('[Backend Upload] Could not make public, continuing:', makePublicErr);
+                    // Try to make public
+                    try {
+                        await fileRef.makePublic();
+                    } catch (makePublicErr) {
+                        console.warn('[Backend Upload] Could not make public, continuing:', makePublicErr);
+                    }
+
+                    // Generate direct public Firebase Storage URL format
+                    const bucketName = storageBucket.name;
+                    const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodeURIComponent(fileName)}?alt=media`;
+
+                    try {
+                        // Try to get a signed URL with a long expiration
+                        const [signedUrl] = await fileRef.getSignedUrl({
+                            action: 'read',
+                            expires: '01-01-2036',
+                        });
+                        console.log(`[Backend Upload] Generated signed URL successfully: ${signedUrl}`);
+                        return signedUrl;
+                    } catch (signedErr) {
+                        console.warn('[Backend Upload] getSignedUrl failed, falling back to public URL:', signedErr);
+                        return publicUrl;
+                    }
+                } catch (error: any) {
+                    console.warn('[Backend Upload] Firebase Storage write failed. Falling back to secure local file storage:', error.message || error);
+                }
             }
 
-            // Generate direct public Firebase Storage URL format
-            const bucketName = storageBucket.name;
-            const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodeURIComponent(fileName)}?alt=media`;
-
+            // Local Filesystem Storage Fallback (Guarantees database is kept clean under 1MB limit)
             try {
-                // Try to get a signed URL with a long expiration
-                const [signedUrl] = await fileRef.getSignedUrl({
-                    action: 'read',
-                    expires: '01-01-2036',
-                });
-                console.log(`[Backend Upload] Generated signed URL successfully: ${signedUrl}`);
-                return signedUrl;
-            } catch (signedErr) {
-                console.warn('[Backend Upload] getSignedUrl failed, falling back to public URL:', signedErr);
-                return publicUrl;
+                const uploadsDir = path.join(process.cwd(), 'uploads');
+                const targetPath = path.join(uploadsDir, targetFolder, shopId);
+                const localFileName = `${Date.now()}-${randomId}.${fileExtension}`;
+                const fullFilePath = path.join(targetPath, localFileName);
+
+                // Ensure directory exists
+                await fs.mkdir(targetPath, { recursive: true });
+                
+                // Write file
+                await fs.writeFile(fullFilePath, buffer);
+                console.log(`[Backend Upload] Successfully saved file locally: ${fullFilePath}`);
+
+                // Return relative route handled by static middleware
+                return `/uploads/${targetFolder}/${shopId}/${localFileName}`;
+            } catch (localError: any) {
+                console.error('[Backend Upload] Local filesystem backup storage failed:', localError);
+                return base64; // Absolute worst case fallback
             }
         } catch (error: any) {
-            const isExpectedStorageError = 
-                error.name === 'GaxiosError' || 
-                error.constructor?.name === 'GaxiosError' ||
-                error.message?.includes('credentials') || 
-                error.message?.includes('Gaxios') ||
-                error.code === 403 ||
-                error.code === '403';
-            
-            if (isExpectedStorageError) {
-                console.warn('[Backend Upload] Firebase Storage write permission denied or unauthenticated (expected in some sandboxed environments). Successfully falling back to Base64 URI.');
-            } else {
-                console.warn('[Backend Upload] Firebase Storage write failed. Successfully falling back to Base64 URI.', error.message || error);
-            }
-            return base64; // Return base64 as fallback
+            console.error('[Backend Upload Exception]', error);
+            return base64;
         }
     }
 
@@ -1039,7 +1054,7 @@ async function startServer() {
     // 3. Image Generation Endpoint
     app.post('/api/generate-image', async (req, res) => {
         try {
-            const { image, style, angle, lighting, type, color } = req.body; // type: 'style', 'color', 'highlights'
+            const { image, style, angle, lighting, type, color, masterReferenceImage } = req.body; // type: 'style', 'color', 'highlights'
             
             if (!apiKey || !ai) {
                 return res.status(500).json({ error: "No fue posible generar la simulación de estilo. Inténtalo nuevamente." });
@@ -1055,28 +1070,94 @@ async function startServer() {
                 imagePart = { inlineData: { data: image.data, mimeType: image.mimeType } };
             }
 
-            if (type === 'style') {
-                const angleInstruction = {
-                    'Frente': 'desde un ángulo frontal (front view)',
-                    'Perfil': 'desde un ángulo de perfil (side view)',
-                    'Tres Cuartos': 'desde un ángulo de tres cuartos (three-quarter view)',
-                }[angle as string] || 'frontal';
-                
-                const lightingInstruction = lighting !== 'Natural' ? `La iluminación debe ser '${lighting}'.` : '';
-                prompt = `Aplica el siguiente peinado a la persona en la foto: '${style}'. La vista debe ser ${angleInstruction}. ${lightingInstruction} El resultado debe ser fotorrealista, cambiando solo el cabello.`;
-            
-            } else if (type === 'color') {
-                prompt = `Cambia el color del cabello de la persona en la foto a ${color}. El resultado debe ser fotorrealista, manteniendo el peinado y los rasgos faciales.`;
-            } else if (type === 'highlights') {
-                prompt = `Añade mechas de color '${color}' al cabello en la foto. El resultado debe ser fotorrealista, manteniendo el peinado y el color base.`;
+            let masterPart: any = null;
+            if (masterReferenceImage) {
+                const cleanMaster = masterReferenceImage.includes(',') 
+                    ? masterReferenceImage.split(',')[1] 
+                    : masterReferenceImage;
+                masterPart = { inlineData: { data: cleanMaster, mimeType: 'image/jpeg' } };
             }
 
-            console.log(`[Hair Simulation AI] Generando imagen con prompt: "${prompt}" usando gemini-3.1-flash-lite-image...`);
+            if (type === 'style') {
+                const angleInstruction = {
+                    'Frente': 'frontal (front view)',
+                    'Perfil': 'perfil (side profile view)',
+                    'Tres Cuartos': 'tres cuartos (three-quarter view)',
+                }[angle as string] || 'frontal';
+
+                const lightingInstruction = lighting !== 'Natural' ? `La iluminación del ambiente debe ser '${lighting}' (por ejemplo, ajustando sombras, exposición, temperatura y contraste para lograr este ambiente de luz).` : 'La iluminación debe ser natural y suave.';
+
+                if (masterPart) {
+                    prompt = `
+                    Estás actuando como un barbero experto en diseño y visagismo capilar en una sesión de fotos profesional.
+                    Tienes dos imágenes de entrada:
+                    - Imagen 1 (la primera imagen): Es la foto original del cliente tomada desde el ángulo/perspectiva de destino.
+                    - Imagen 2 (la segunda imagen): Es el diseño de peinado "maestro" de referencia que ya generaste con éxito para este cliente en vista frontal.
+                    
+                    Tu tarea obligatoria es transferir EXACTAMENTE el mismo diseño de peinado, corte y barba que se ve en la Imagen 2 al rostro del cliente en la Imagen 1.
+                    El resultado debe ser una simulación fotorrealista impecable en donde el cliente de la Imagen 1 tiene el corte de la Imagen 2, pero adaptado y rotado perfectamente a la perspectiva '${angleInstruction}'.
+                    
+                    Instrucciones estrictas de consistencia:
+                    1. NO diseñes un peinado nuevo. Mantén de manera idéntica la longitud, el nivel de degradado (fade), la textura, el volumen superior, las patillas, el color de cabello y la barba de la Imagen 2. Debe parecer exactamente la misma persona en una sesión fotográfica profesional de múltiples ángulos (photoshoot).
+                    2. Adapta la geometría del peinado de la Imagen 2 de forma tridimensional y natural para que coincida perfectamente con la perspectiva '${angleInstruction}' de la cabeza en la Imagen 1.
+                    3. Conserva intactas todas las facciones, estructura ósea, ojos, nariz y orejas del cliente original de la Imagen 1. No alteres su rostro, solo aplica el peinado.
+                    4. Aplica el filtro de iluminación solicitado: ${lightingInstruction} Esta iluminación debe modificar únicamente la luz ambiental, exposición, temperatura y sombras del peinado y escena, sin alterar la forma, diseño ni estructura del corte.
+                    `;
+                } else {
+                    const angleText = {
+                        'Frente': 'frontal (front view)',
+                        'Perfil': 'de perfil (side view)',
+                        'Tres Cuartos': 'de tres cuartos (three-quarter view)',
+                    }[angle as string] || 'frontal';
+                    
+                    const lightingText = lighting !== 'Natural' ? `La iluminación del ambiente debe ser '${lighting}' (por ejemplo, ajustando sombras, exposición, temperatura y contraste para lograr este ambiente de luz).` : 'La iluminación debe ser natural y suave.';
+                    
+                    prompt = `
+                    Estás actuando como un estilista de cabello y barbero profesional de alta gama en una sesión fotográfica de estudio.
+                    Aplica el peinado '${style}' de manera impecable y fotorrealista a la persona de la foto de entrada.
+                    
+                    Instrucciones de diseño críticas:
+                    1. Aplica el peinado '${style}' adaptándolo de forma natural a las facciones y forma de la cabeza en la foto, con transiciones, volumen y degradados (fade) limpios.
+                    2. La vista o ángulo de destino de la cabeza debe ser ${angleText}.
+                    3. Conserva de manera fotorrealista e intacta toda la estructura ósea, ojos, nariz, boca, orejas y rasgos faciales de la persona de la foto. No alteres su rostro ni su identidad.
+                    4. Aplica el filtro de iluminación solicitado: ${lightingText} La iluminación debe cambiar únicamente la luz ambiental, exposición, sombras y contraste de la escena, sin modificar la estructura ni diseño del cabello.
+                    `;
+                }
+            
+            } else if (type === 'color') {
+                if (masterPart) {
+                    prompt = `
+                    Cambia el color del cabello de la persona en la foto a ${color}.
+                    Como referencia, la Imagen 2 muestra el peinado y corte actual del cliente.
+                    Modifica únicamente el color del cabello del cliente a ${color}, manteniendo el peinado, corte, textura y rasgos faciales de forma fotorrealista.
+                    `;
+                } else {
+                    prompt = `Cambia el color del cabello de la persona en la foto a ${color}. El resultado debe ser fotorrealista, manteniendo el peinado y los rasgos faciales.`;
+                }
+            } else if (type === 'highlights') {
+                if (masterPart) {
+                    prompt = `
+                    Añade mechas de color '${color}' al cabello del cliente en la foto.
+                    Como referencia, la Imagen 2 muestra el peinado y corte actual del cliente.
+                    Añade las mechas de forma fotorrealista e impecable, manteniendo el peinado, corte y color base de la Imagen 2.
+                    `;
+                } else {
+                    prompt = `Añade mechas de color '${color}' al cabello en la foto. El resultado debe ser fotorrealista, manteniendo el peinado y el color base.`;
+                }
+            }
+
+            const contentsParts = [imagePart];
+            if (masterPart) {
+                contentsParts.push(masterPart);
+            }
+            contentsParts.push({ text: prompt });
+
+            console.log(`[Hair Simulation AI] Generando imagen con prompt: "${prompt.slice(0, 150)}..." usando gemini-3.1-flash-lite-image...`);
             let response;
             try {
                 response = await ai.models.generateContent({
                     model: 'gemini-3.1-flash-lite-image',
-                    contents: { parts: [imagePart, { text: prompt }] },
+                    contents: { parts: contentsParts },
                     config: {
                         responseModalities: [Modality.IMAGE],
                     },
@@ -1085,7 +1166,7 @@ async function startServer() {
                 console.warn('[Hair Simulation AI] Falló con gemini-3.1-flash-lite-image, reintentando con gemini-3.1-flash-image...', liteError.message || liteError);
                 response = await ai.models.generateContent({
                     model: 'gemini-3.1-flash-image',
-                    contents: { parts: [imagePart, { text: prompt }] },
+                    contents: { parts: contentsParts },
                     config: {
                         responseModalities: [Modality.IMAGE],
                     },
