@@ -314,10 +314,14 @@ export async function saveDb(): Promise<void> {
   if (!dbInstance) return;
 
   writePromise = writePromise.then(async () => {
-    // 1. Save locally
-    await saveDbFile();
-    // 2. Sync to Firestore in background
-    await syncToFirestore(dbInstance!);
+    try {
+      // 1. Save locally
+      await saveDbFile();
+      // 2. Sync to Firestore in background
+      await syncToFirestore(dbInstance!);
+    } catch (err) {
+      console.error('[saveDb Queue Error] Failed to write or sync db updates:', err);
+    }
   });
 
   return writePromise;

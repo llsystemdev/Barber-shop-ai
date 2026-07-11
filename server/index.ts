@@ -986,14 +986,26 @@ async function startServer() {
                 prompt = `Añade mechas de color '${color}' al cabello en la foto. El resultado debe ser fotorrealista, manteniendo el peinado y el color base.`;
             }
 
-            console.log(`[Hair Simulation AI] Generando imagen con prompt: "${prompt}" usando gemini-3.1-flash-image...`);
-            const response = await ai.models.generateContent({
-                model: 'gemini-3.1-flash-image',
-                contents: { parts: [imagePart, { text: prompt }] },
-                config: {
-                    responseModalities: [Modality.IMAGE],
-                },
-            });
+            console.log(`[Hair Simulation AI] Generando imagen con prompt: "${prompt}" usando gemini-3.1-flash-lite-image...`);
+            let response;
+            try {
+                response = await ai.models.generateContent({
+                    model: 'gemini-3.1-flash-lite-image',
+                    contents: { parts: [imagePart, { text: prompt }] },
+                    config: {
+                        responseModalities: [Modality.IMAGE],
+                    },
+                });
+            } catch (liteError: any) {
+                console.warn('[Hair Simulation AI] Falló con gemini-3.1-flash-lite-image, reintentando con gemini-3.1-flash-image...', liteError.message || liteError);
+                response = await ai.models.generateContent({
+                    model: 'gemini-3.1-flash-image',
+                    contents: { parts: [imagePart, { text: prompt }] },
+                    config: {
+                        responseModalities: [Modality.IMAGE],
+                    },
+                });
+            }
 
             const firstCandidate = response?.candidates?.[0];
             let generatedImageBase64 = null;
