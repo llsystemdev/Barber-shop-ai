@@ -3,7 +3,7 @@
   "appId": "1:364608562135:web:e4f70ed5df9096431b6192",
   "apiKey": "AIzaSyBNQBUZ4Tm8kzDii9lxJY_8Ys6owaJn1Ag",
   "authDomain": "gen-lang-client-0783774269.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-barbershopai-ffc827ef-d1eb-4d77-898a-705c1dd28ddb",
+  "firestoreDatabaseId": "(default)",
   "storageBucket": "gen-lang-client-0783774269.firebasestorage.app",
   "messagingSenderId": "364608562135",
   "measurementId": "",

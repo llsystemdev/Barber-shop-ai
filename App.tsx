@@ -90,6 +90,7 @@ const App: React.FC = () => {
   const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   const unsubscribeBookingsRef = useRef<(() => void) | null>(null);
+  const lastHandledUserIdRef = useRef<string | null>(null);
 
   const handleStartGuestMode = () => {
     const guestUser: AppUser = {
@@ -166,6 +167,11 @@ const App: React.FC = () => {
   }, [screen, shops.length]);
 
   const handleUserSession = async (user: any) => {
+    if (lastHandledUserIdRef.current === user.id) {
+        console.log("Sesión ya manejada o en curso para este ID de usuario, omitiendo:", user.id);
+        return;
+    }
+    lastHandledUserIdRef.current = user.id;
     console.log("Iniciando handleUserSession para:", user.id);
     try {
         const firebaseUser = auth.currentUser;
@@ -554,9 +560,9 @@ const App: React.FC = () => {
         onNavigate={(v) => setActiveView(v as any)}
         isOpen={isSidebarOpen}
         setIsOpen={setIsSidebarOpen}
-        onLogout={async () => { await localLogout(); setScreen('home'); }}
-        onGoHome={() => { setCurrentUser(null); setScreen('home'); }}
-        onRegister={() => { setCurrentUser(null); setScreen('login'); }}
+        onLogout={async () => { lastHandledUserIdRef.current = null; await localLogout(); setScreen('home'); }}
+        onGoHome={() => { lastHandledUserIdRef.current = null; setCurrentUser(null); setScreen('home'); }}
+        onRegister={() => { lastHandledUserIdRef.current = null; setCurrentUser(null); setScreen('login'); }}
       />
       <div className="flex-1 flex flex-col">
         <MainHeader title={activeView} onMenuClick={() => setIsSidebarOpen(true)} />
