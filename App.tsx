@@ -8,7 +8,9 @@ import {
     uploadBase64Image,
     updateShop,
     getAllShops,
-    uploadShopImage
+    uploadShopImage,
+    saveMirrorSession,
+    getMirrorSession
 } from './services/barberShopService';
 import { onAuthStateChanged, logoutUser as localLogout, loginWithGoogle } from './services/authService';
 import { auth } from './firebase/client';
@@ -118,6 +120,29 @@ const App: React.FC = () => {
     });
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    const restoreMirrorSession = async () => {
+      if (currentUser && !currentUser.id.startsWith('guest_')) {
+        console.log('[Mirror Cache] Checking for cached mirror session...');
+        try {
+          const cached = await getMirrorSession(currentUser.id);
+          if (cached) {
+            console.log('[Mirror Cache] Restored cached session:', cached);
+            setFrontImage(cached.frontImage);
+            setSideImage(cached.sideImage);
+            setSuggestedStyles(cached.suggestedStyles);
+            setAnalysisResult(cached.analysisResult);
+            setGeneratedImages(cached.generatedImages);
+            setMirrorState('results');
+          }
+        } catch (err) {
+          console.warn('[Mirror Cache] Failed to load session:', err);
+        }
+      }
+    };
+    restoreMirrorSession();
+  }, [currentUser]);
 
   useEffect(() => {
     const fetchShopsOnMount = async () => {
@@ -378,15 +403,57 @@ const App: React.FC = () => {
               }
           }
 
-          for (let i = 0; i < analysis.styles.length; i++) {
-              triggerImageGeneration(i, analysis.styles[i], 'Frente', 'Natural', frontUrl);
-              await new Promise(r => setTimeout(r, 600)); 
+          // Initial empty session save to Firestore for immediate persistence
+          if (currentUser && !currentUser.id.startsWith('guest_')) {
+              await saveMirrorSession(currentUser.id, {
+                  frontImage: frontUrl,
+                  sideImage: sideUrl,
+                  suggestedStyles: analysis.styles,
+                  analysisResult: analysis.finalRecommendation,
+                  generatedImages: Array(12).fill(null)
+              });
+          }
+
+          // Trigger background generation for all 12 slots (4 styles x 3 angles)
+          const angles: { name: string, offset: number, imgUrl: string | null }[] = [
+              { name: 'Frente', offset: 0, imgUrl: frontUrl },
+              { name: 'Perfil', offset: 4, imgUrl: sideUrl },
+              { name: 'Tres Cuartos', offset: 8, imgUrl: frontUrl }
+          ];
+
+          for (const angleInfo of angles) {
+              for (let i = 0; i < analysis.styles.length; i++) {
+                  triggerImageGeneration(
+                      angleInfo.offset + i, 
+                      analysis.styles[i], 
+                      angleInfo.name, 
+                      'Natural', 
+                      angleInfo.imgUrl || undefined
+                  );
+                  await new Promise(r => setTimeout(r, 450)); 
+              }
           }
           
       } catch (e) {
           console.error('[Visagismo Error]', e);
           setMirrorState('initial');
           setAnalysisError("No fue posible completar el análisis. Inténtalo nuevamente.");
+      }
+  };
+
+  const saveCurrentMirrorSession = async (updatedImages?: (string | null)[]) => {
+      if (!currentUser || currentUser.id.startsWith('guest_')) return;
+      try {
+          const imagesToSave = updatedImages || generatedImages;
+          await saveMirrorSession(currentUser.id, {
+              frontImage,
+              sideImage,
+              suggestedStyles,
+              analysisResult,
+              generatedImages: imagesToSave
+          });
+      } catch (err) {
+          console.error('[Mirror Cache] Failed to save session:', err);
       }
   };
 
@@ -408,6 +475,8 @@ const App: React.FC = () => {
         setGeneratedImages(prev => {
             const next = [...prev];
             next[index] = result;
+            // Persist generated image to Firestore in the background
+            saveCurrentMirrorSession(next);
             return next;
         });
     } catch (e) {
@@ -421,25 +490,40 @@ const App: React.FC = () => {
     }
   };
 
+  const handleReloadAll = async () => {
+      if (!frontImage || !sideImage || suggestedStyles.length === 0) return;
+      
+      setGeneratedImages(Array(12).fill(null));
+      setIsGeneratingImages(Array(12).fill(true));
+
+      const angles: { name: string, offset: number, imgUrl: string | null }[] = [
+          { name: 'Frente', offset: 0, imgUrl: frontImage },
+          { name: 'Perfil', offset: 4, imgUrl: sideImage },
+          { name: 'Tres Cuartos', offset: 8, imgUrl: frontImage }
+      ];
+
+      for (const angleInfo of angles) {
+          for (let i = 0; i < suggestedStyles.length; i++) {
+              triggerImageGeneration(
+                  angleInfo.offset + i, 
+                  suggestedStyles[i], 
+                  angleInfo.name, 
+                  'Natural', 
+                  angleInfo.imgUrl || undefined
+              );
+              await new Promise(r => setTimeout(r, 450)); 
+          }
+      }
+  };
+
   const handleColorChange = (newColor: string) => {
       const colorToSet = activeColor === newColor ? undefined : newColor;
       setActiveColor(colorToSet);
-      regenerateVisibleBatch(colorToSet, activeHighlights);
   };
 
   const handleHighlightsChange = (newHighlights: string) => {
       const highlightsToSet = activeHighlights === newHighlights ? undefined : newHighlights;
       setActiveHighlights(highlightsToSet);
-      regenerateVisibleBatch(activeColor, highlightsToSet);
-  };
-
-  const regenerateVisibleBatch = (color?: string, highlights?: string) => {
-      const startIndex = activeAngle === 'front' ? 0 : activeAngle === 'side' ? 4 : 8;
-      const angleLabel = activeAngle === 'front' ? 'Frente' : activeAngle === 'side' ? 'Perfil' : 'Tres Cuartos';
-      
-      suggestedStyles.forEach((style, i) => {
-          triggerImageGeneration(startIndex + i, style, angleLabel, activeLighting, undefined, color, highlights);
-      });
   };
 
   const handleSaveResults = async () => {
@@ -596,27 +680,25 @@ const App: React.FC = () => {
                     isGeneratingImages={isGeneratingImages}
                     activeAngle={activeAngle}
                     plan={currentShop.plan}
+                    activeColor={activeColor}
+                    activeHighlights={activeHighlights}
+                    activeLighting={activeLighting}
                     onAngleChange={(a) => {
                         setActiveAngle(a);
-                        const angleLabel = a === 'front' ? 'Frente' : a === 'side' ? 'Perfil' : 'Tres Cuartos';
-                        const startIndex = a === 'front' ? 0 : a === 'side' ? 4 : 8;
-                        suggestedStyles.forEach((s, i) => triggerImageGeneration(startIndex + i, s, angleLabel, activeLighting, undefined, activeColor, activeHighlights));
                     }}
                     onLightingChange={(l) => {
                         setActiveLighting(l);
-                        const startIndex = activeAngle === 'front' ? 0 : activeAngle === 'side' ? 4 : 8;
-                        const angleLabel = activeAngle === 'front' ? 'Frente' : activeAngle === 'side' ? 'Perfil' : 'Tres Cuartos';
-                        suggestedStyles.forEach((s, i) => triggerImageGeneration(startIndex + i, s, angleLabel, l, undefined, activeColor, activeHighlights));
                     }}
                     onColorChange={handleColorChange}
                     onHighlightsChange={handleHighlightsChange}
                     onRegenerateImage={(i) => {
                         const angleLabel = activeAngle === 'front' ? 'Frente' : activeAngle === 'side' ? 'Perfil' : 'Tres Cuartos';
-                        triggerImageGeneration(i, suggestedStyles[i % 4], angleLabel, activeLighting, undefined, activeColor, activeHighlights);
+                        triggerImageGeneration(i, suggestedStyles[i % 4], angleLabel, 'Natural', undefined, undefined, undefined);
                     }}
                     onShare={handleSaveResults}
                     onUploadNew={() => { setMirrorState('initial'); setFrontImage(null); setSideImage(null); }}
                     onImageClick={(url, caption) => setSelectedImageForModal({url, caption})}
+                    onReloadAll={handleReloadAll}
                     isGuest={currentUser?.isGuest}
                     simulationsCount={guestSimulationsCount}
                     error={analysisError}

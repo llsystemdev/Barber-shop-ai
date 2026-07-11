@@ -242,6 +242,13 @@ const LoginView: React.FC<{ onLogin: any, onGoHome: any }> = ({ onGoHome }) => {
                                         <p className="text-slate-500 text-[9px] pt-1">Opcional: Si quieres habilitar el login de Google por el servidor independiente, configura las variables <code className="bg-slate-100 px-1 py-0.5 rounded font-mono">GOOGLE_CLIENT_ID</code> y <code className="bg-slate-100 px-1 py-0.5 rounded font-mono">GOOGLE_CLIENT_SECRET</code> en tus variables de entorno.</p>
                                     </div>
                                 )}
+                                {(error.toLowerCase().includes('popup') || error.toLowerCase().includes('closed') || error.toLowerCase().includes('blocked') || error.toLowerCase().includes('network-request-failed')) && (
+                                    <div className="text-[10px] text-slate-700 font-medium space-y-1.5 normal-case tracking-normal border-t border-red-100 pt-2 mt-2">
+                                        <p className="font-bold text-red-700 uppercase tracking-wide">💡 TIP: RESTRICCIONES DE VISTA PREVIA (IFRAME)</p>
+                                        <p>Los navegadores modernos suelen bloquear popups de autenticación de Google de terceros cuando la aplicación se ejecuta dentro de un IFrame (como el visor interno de AI Studio).</p>
+                                        <p className="font-bold text-slate-900">Solución rápida: Haz clic en el botón "Abrir en una pestaña nueva" en la parte superior derecha de la vista previa para ejecutar la aplicación directamente en su propio dominio independiente, donde las ventanas emergentes funcionan sin restricciones.</p>
+                                    </div>
+                                )}
                             </div>
                         )}
 

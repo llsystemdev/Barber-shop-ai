@@ -13,6 +13,9 @@ interface VirtualMirrorProps {
   activeAngle: Angle;
   plan: 'Freemium' | 'Básico' | 'Profesional';
   shopName: string;
+  activeColor: string | undefined;
+  activeHighlights: string | undefined;
+  activeLighting: string;
   onAngleChange: (angle: Angle) => void;
   onLightingChange: (lighting: string) => void;
   onColorChange: (color: string) => void;
@@ -21,6 +24,7 @@ interface VirtualMirrorProps {
   onShare: () => void;
   onUploadNew: () => void;
   onImageClick: (url: string, caption: string) => void;
+  onReloadAll: () => void; // Added global reload prop
 }
 
 const Loader: React.FC<{text?: string}> = ({text = "Generando..."}) => (
@@ -39,8 +43,26 @@ const ImageCell: React.FC<{
   watermarkText: string,
   onClick: () => void,
   onRegenerate: (e: React.MouseEvent) => void,
-  onToggleFavorite: (e: React.MouseEvent) => void
-}> = ({ image, styleName, isLoading, isFreemium, isFavorite, watermarkText, onClick, onRegenerate, onToggleFavorite }) => {
+  onToggleFavorite: (e: React.MouseEvent) => void,
+  lighting: string,
+  hairColor: string | undefined,
+  highlights: string | undefined
+}> = ({ image, styleName, isLoading, isFreemium, isFavorite, watermarkText, onClick, onRegenerate, onToggleFavorite, lighting, hairColor, highlights }) => {
+  // Define CSS filters based on lighting and colors
+  let filterClass = "";
+  if (lighting === 'Estudio') {
+    filterClass += " brightness-105 contrast-110 saturate-105";
+  } else if (lighting === 'Neón') {
+    filterClass += " saturate-125 contrast-105 brightness-95";
+  }
+
+  // Platinum/Black color specific image filters
+  if (hairColor === '#ffffff') {
+    filterClass += " saturate-[0.6] brightness-[1.15] contrast-[1.1]";
+  } else if (hairColor === '#1a1a1a') {
+    filterClass += " brightness-[0.85] contrast-[1.15]";
+  }
+
   return (
     <div className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden shadow-xl group bg-slate-100 border-2 border-transparent hover:border-red-600 hover:shadow-red-500/10 transition-all duration-300">
       <button 
@@ -50,7 +72,44 @@ const ImageCell: React.FC<{
       >
         {isLoading && <Loader text="Analizando..." />}
         {image ? (
-          <img src={image} alt={styleName} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+          <div className="relative w-full h-full">
+            <img 
+              src={image} 
+              alt={styleName} 
+              className={`w-full h-full object-cover transition-all duration-700 group-hover:scale-105 ${filterClass}`} 
+            />
+            {/* Base Hair Color Overlay */}
+            {hairColor && hairColor !== 'natural' && hairColor !== '#ffffff' && hairColor !== '#1a1a1a' && (
+              <div 
+                className="absolute inset-0 mix-blend-color opacity-30 pointer-events-none z-10 rounded-2xl"
+                style={{ backgroundColor: hairColor }}
+              />
+            )}
+
+            {/* Highlights Overlay */}
+            {highlights && highlights !== 'none' && (
+              <div 
+                className="absolute inset-0 mix-blend-overlay opacity-35 pointer-events-none z-10 rounded-2xl"
+                style={{ 
+                  background: `radial-gradient(circle at 50% 35%, ${highlights} 0%, transparent 65%)` 
+                }}
+              />
+            )}
+
+            {/* Neon Light Filter Overlay */}
+            {lighting === 'Neón' && (
+              <div 
+                className="absolute inset-0 bg-gradient-to-tr from-indigo-500/15 via-transparent to-rose-500/20 mix-blend-color-dodge pointer-events-none z-10 rounded-2xl"
+              />
+            )}
+
+            {/* Studio Light Filter Overlay */}
+            {lighting === 'Estudio' && (
+              <div 
+                className="absolute inset-0 bg-gradient-to-b from-amber-500/5 to-transparent mix-blend-soft-light pointer-events-none z-10 rounded-2xl"
+              />
+            )}
+          </div>
         ) : !isLoading && (
           <div className="w-full h-full flex flex-col items-center justify-center p-4">
             <div className="w-8 h-8 text-slate-400 animate-spin border-2 border-slate-300 border-t-red-600 rounded-full mb-2"></div>
@@ -168,8 +227,44 @@ const VirtualMirror: React.FC<VirtualMirrorProps> = (props) => {
             <div className="flex flex-col md:flex-row gap-6 items-center">
               {/* Slider Widget */}
               <div className="relative w-full max-w-sm aspect-[3/4] rounded-2xl overflow-hidden border border-slate-200 shadow-2xl mx-auto">
-                {/* Después (Estilizado) */}
-                <img src={activeSliderImage} alt="Estilizado" className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
+                {/* Después (Estilizado con filtros de tiempo real) */}
+                <div className="absolute inset-0 w-full h-full">
+                  <img 
+                    src={activeSliderImage} 
+                    alt="Estilizado" 
+                    className={`w-full h-full object-cover pointer-events-none ${
+                      props.activeLighting === 'Estudio' ? 'brightness-105 contrast-110 saturate-105' : 
+                      props.activeLighting === 'Neón' ? 'saturate-125 contrast-105 brightness-95' : ''
+                    } ${
+                      props.activeColor === '#ffffff' ? 'saturate-[0.6] brightness-[1.15] contrast-[1.1]' :
+                      props.activeColor === '#1a1a1a' ? 'brightness-[0.85] contrast-[1.15]' : ''
+                    }`} 
+                  />
+                  {props.activeColor && props.activeColor !== 'natural' && props.activeColor !== '#ffffff' && props.activeColor !== '#1a1a1a' && (
+                    <div 
+                      className="absolute inset-0 mix-blend-color opacity-30 pointer-events-none z-10"
+                      style={{ backgroundColor: props.activeColor }}
+                    />
+                  )}
+                  {props.activeHighlights && props.activeHighlights !== 'none' && (
+                    <div 
+                      className="absolute inset-0 mix-blend-overlay opacity-35 pointer-events-none z-10"
+                      style={{ 
+                        background: `radial-gradient(circle at 50% 35%, ${props.activeHighlights} 0%, transparent 65%)` 
+                      }}
+                    />
+                  )}
+                  {props.activeLighting === 'Neón' && (
+                    <div 
+                      className="absolute inset-0 bg-gradient-to-tr from-indigo-500/15 via-transparent to-rose-500/20 mix-blend-color-dodge pointer-events-none z-10"
+                    />
+                  )}
+                  {props.activeLighting === 'Estudio' && (
+                    <div 
+                      className="absolute inset-0 bg-gradient-to-b from-amber-500/5 to-transparent mix-blend-soft-light pointer-events-none z-10"
+                    />
+                  )}
+                </div>
                 
                 {/* Antes (Original con Clip width) */}
                 <div 
@@ -264,6 +359,9 @@ const VirtualMirror: React.FC<VirtualMirrorProps> = (props) => {
                         e.stopPropagation();
                         if (imgUrl) toggleFavorite(style, imgUrl);
                       }}
+                      lighting={props.activeLighting}
+                      hairColor={props.activeColor}
+                      highlights={props.activeHighlights}
                     />
                     
                     {imgUrl && (
@@ -367,13 +465,19 @@ const VirtualMirror: React.FC<VirtualMirrorProps> = (props) => {
             onClick={props.onUploadNew} 
             className="flex-1 py-4 bg-white border-2 border-slate-200 text-slate-900 font-black uppercase text-[10px] tracking-widest rounded-2xl hover:bg-slate-50 transition-all shadow-sm"
           >
-            Cambiar Fotos de Origen
+            Cambiar Fotos
+          </button>
+          <button 
+            onClick={props.onReloadAll}
+            className="flex-1 py-4 bg-slate-900 hover:bg-slate-800 text-white font-black uppercase text-[10px] tracking-widest rounded-2xl transition-all shadow-md flex items-center justify-center gap-1.5"
+          >
+            <span>🔄</span> Regenerar Todo
           </button>
           <button 
             onClick={props.onShare} 
             className="flex-1 py-4 bg-red-600 hover:bg-red-700 text-white font-black uppercase text-[10px] tracking-widest rounded-2xl transition-all shadow-lg shadow-red-600/25"
           >
-            Sincronizar con Galería
+            Sincronizar Galería
           </button>
         </div>
 

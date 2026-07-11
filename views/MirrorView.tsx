@@ -17,6 +17,9 @@ interface MirrorViewProps {
     isGeneratingImages: boolean[];
     activeAngle: 'front' | 'side' | 'threeQuarter';
     plan: 'Freemium' | 'Básico' | 'Profesional'; // Added plan prop
+    activeColor: string | undefined;
+    activeHighlights: string | undefined;
+    activeLighting: string;
     onAngleChange: (angle: 'front' | 'side' | 'threeQuarter') => void;
     onLightingChange: (lighting: string) => void;
     onColorChange: (color: string) => void;
@@ -25,6 +28,7 @@ interface MirrorViewProps {
     onShare: () => void;
     onUploadNew: () => void;
     onImageClick: (url: string, caption: string) => void;
+    onReloadAll: () => void;
     isGuest?: boolean;
     simulationsCount?: number;
     error?: string | null;
@@ -63,6 +67,9 @@ const MirrorView: React.FC<MirrorViewProps> = (props) => {
                 activeAngle={props.activeAngle}
                 plan={props.plan} // Pass plan
                 shopName={props.currentShopName} // Pass shop name for watermark
+                activeColor={props.activeColor}
+                activeHighlights={props.activeHighlights}
+                activeLighting={props.activeLighting}
                 onAngleChange={props.onAngleChange}
                 onLightingChange={props.onLightingChange}
                 onColorChange={props.onColorChange}
@@ -71,6 +78,7 @@ const MirrorView: React.FC<MirrorViewProps> = (props) => {
                 onShare={props.onShare} 
                 onUploadNew={props.onUploadNew} 
                 onImageClick={props.onImageClick} 
+                onReloadAll={props.onReloadAll}
             />
         )}
         </div>

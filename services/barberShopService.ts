@@ -213,3 +213,45 @@ export const uploadShopImage = async (file: File, shopId: string, bucket: 'galer
     });
   }
 };
+
+// --- VIRTUAL MIRROR SESSION CACHING ---
+
+export interface MirrorSessionData {
+  userId: string;
+  frontImage: string | null;
+  sideImage: string | null;
+  suggestedStyles: string[];
+  analysisResult: string | null;
+  generatedImages: (string | null)[];
+  createdAt: string;
+}
+
+export const saveMirrorSession = async (userId: string, data: Omit<MirrorSessionData, 'userId' | 'createdAt'>): Promise<void> => {
+  try {
+    const sessionDocRef = doc(db, 'mirror_sessions', userId);
+    await setDoc(sessionDocRef, {
+      ...data,
+      userId,
+      createdAt: new Date().toISOString()
+    });
+    console.log(`[Mirror Cache] Session saved to Firestore for user: ${userId}`);
+  } catch (error) {
+    console.error('Error saving mirror session:', error);
+  }
+};
+
+export const getMirrorSession = async (userId: string): Promise<MirrorSessionData | null> => {
+  try {
+    const sessionDocRef = doc(db, 'mirror_sessions', userId);
+    const docSnap = await getDoc(sessionDocRef);
+    if (docSnap.exists()) {
+      console.log(`[Mirror Cache] Session loaded from Firestore for user: ${userId}`);
+      return docSnap.data() as MirrorSessionData;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting mirror session:', error);
+    return null;
+  }
+};
+

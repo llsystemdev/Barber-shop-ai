@@ -27,6 +27,9 @@ service cloud.firestore {
     }
     
     // Colecciones secundarias del sistema sincronizadas por el servidor
+    match /mirror_sessions/{sessionId} {
+      allow read, write: if true;
+    }
     match /securityLogs/{logId} {
       allow read, write: if true;
     }
