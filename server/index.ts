@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import { GoogleGenAI, Modality, Type } from "@google/genai";
 import dotenv from 'dotenv';
 import path from 'path';
@@ -131,6 +132,7 @@ async function startServer() {
     const port = 3000;
 
     app.use(cors());
+    app.use(compression());
     app.use(express.json({ limit: '50mb' }));
 
     // Initialize Gemini Client
@@ -651,8 +653,20 @@ async function startServer() {
         app.use(vite.middlewares);
     } else {
         const distPath = path.join(process.cwd(), 'dist');
-        app.use(base, express.static(distPath));
+        app.use(base, express.static(distPath, {
+            maxAge: '1y',
+            immutable: true,
+            setHeaders: (res, filepath) => {
+                const isAsset = filepath.includes('/assets/') || filepath.includes('\\assets\\');
+                if (filepath.endsWith('.html') || filepath.endsWith('index.html') || !isAsset) {
+                    res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+                } else {
+                    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+                }
+            }
+        }));
         app.get('*', (req, res) => {
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
             res.sendFile(path.join(distPath, 'index.html'));
         });
     }

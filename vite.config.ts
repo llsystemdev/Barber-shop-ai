@@ -9,6 +9,26 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    cssMinify: true,
+    minify: 'esbuild',
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('firebase') || id.includes('@firebase')) {
+              return 'vendor-firebase';
+            }
+            if (id.includes('lucide-react')) {
+              return 'vendor-lucide';
+            }
+            if (id.includes('react') || id.includes('react-dom') || id.includes('motion')) {
+              return 'vendor-react';
+            }
+            return 'vendor';
+          }
+        }
+      }
+    }
   },
   server: {
     watch: {
