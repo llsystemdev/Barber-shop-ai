@@ -238,8 +238,13 @@ const HomeView: React.FC<HomeViewProps> = ({ onShowLogin, onGoHome, onStartGuest
       <header className="fixed top-0 left-0 right-0 z-50 bg-slate-950/80 backdrop-blur-xl border-b border-slate-900 px-6 py-4">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <button onClick={onGoHome} className="flex items-center space-x-2.5 group focus:outline-none focus:ring-2 focus:ring-red-500 rounded-xl px-1 py-0.5 transition-all">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center font-black text-white tracking-tighter text-base shadow-md shadow-red-600/30 group-hover:scale-105 transition-transform duration-200">
-              B
+            <div className="w-9 h-9 rounded-xl overflow-hidden bg-slate-900 flex items-center justify-center shadow-md shadow-slate-950/50 group-hover:scale-105 transition-transform duration-200 border border-slate-800">
+              <img 
+                src="https://firebasestorage.googleapis.com/v0/b/barber-sho-ai.firebasestorage.app/o/admin-things%2Flogo%20barber-shop-ai.png?alt=media&token=c4c811d7-16ac-471b-b23d-c2936f2fba85" 
+                alt="Logo" 
+                className="w-full h-full object-cover"
+                referrerPolicy="no-referrer"
+              />
             </div>
             <span className="text-xl md:text-2xl font-black tracking-widest text-white uppercase transition-colors duration-200">
               BARBER<span className="text-red-500 italic font-extrabold group-hover:text-white transition-colors duration-200">AI</span>

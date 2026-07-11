@@ -97,7 +97,15 @@ const LoginView: React.FC<{ onLogin: any, onGoHome: any }> = ({ onGoHome }) => {
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent flex flex-col justify-end p-10 text-white">
-                <button onClick={onGoHome} className="text-left focus:outline-none rounded-lg p-1">
+                <button onClick={onGoHome} className="text-left focus:outline-none rounded-lg p-1 flex flex-col items-start gap-4">
+                    <div className="w-16 h-16 rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 shadow-xl flex items-center justify-center">
+                        <img 
+                            src="https://firebasestorage.googleapis.com/v0/b/barber-sho-ai.firebasestorage.app/o/admin-things%2Flogo%20barber-shop-ai.png?alt=media&token=c4c811d7-16ac-471b-b23d-c2936f2fba85" 
+                            alt="Logo" 
+                            className="w-full h-full object-cover"
+                            referrerPolicy="no-referrer"
+                        />
+                    </div>
                     <h1 className="text-5xl font-black tracking-tighter uppercase leading-none">
                         Barber
                         <span className="text-red-600"> AI</span>
@@ -124,6 +132,14 @@ const LoginView: React.FC<{ onLogin: any, onGoHome: any }> = ({ onGoHome }) => {
             </div>
 
             <div className="w-full max-w-md mx-auto">
+                 <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-900 border border-slate-100 shadow-md flex items-center justify-center mb-4">
+                     <img 
+                         src="https://firebasestorage.googleapis.com/v0/b/barber-sho-ai.firebasestorage.app/o/admin-things%2Flogo%20barber-shop-ai.png?alt=media&token=c4c811d7-16ac-471b-b23d-c2936f2fba85" 
+                         alt="Logo" 
+                         className="w-full h-full object-cover"
+                         referrerPolicy="no-referrer"
+                     />
+                 </div>
                  <h2 className="text-4xl font-black text-slate-950 mb-2 uppercase tracking-tight">
                     {isResettingPassword ? 'RECUPERAR' : isRegistering ? 'REGÍSTRATE' : 'BIENVENIDO'}
                  </h2>

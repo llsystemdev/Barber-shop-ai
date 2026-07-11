@@ -22,8 +22,13 @@ const MainHeader: React.FC<MainHeaderProps> = ({ title, onMenuClick }) => {
         <h2 className="text-xl font-black text-slate-950 uppercase tracking-widest">{title}</h2>
       </div>
       <div>
-        <div className="w-10 h-10 rounded-full bg-slate-900 border-2 border-red-600 flex items-center justify-center text-white font-black text-xs">
-            B
+        <div className="w-10 h-10 rounded-xl overflow-hidden bg-slate-900 border-2 border-red-600 flex items-center justify-center shadow-md">
+          <img 
+            src="https://firebasestorage.googleapis.com/v0/b/barber-sho-ai.firebasestorage.app/o/admin-things%2Flogo%20barber-shop-ai.png?alt=media&token=c4c811d7-16ac-471b-b23d-c2936f2fba85" 
+            alt="Logo" 
+            className="w-full h-full object-cover"
+            referrerPolicy="no-referrer"
+          />
         </div>
       </div>
     </header>

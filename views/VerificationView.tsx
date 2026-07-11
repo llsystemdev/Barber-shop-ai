@@ -92,6 +92,16 @@ const VerificationView: React.FC<VerificationViewProps> = ({ email, onGoBack, on
           </button>
         </div>
 
+        {/* Brand Logo */}
+        <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-900 border border-slate-100 shadow-md flex items-center justify-center mb-4">
+             <img 
+                 src="https://firebasestorage.googleapis.com/v0/b/barber-sho-ai.firebasestorage.app/o/admin-things%2Flogo%20barber-shop-ai.png?alt=media&token=c4c811d7-16ac-471b-b23d-c2936f2fba85" 
+                 alt="Logo" 
+                 className="w-full h-full object-cover"
+                 referrerPolicy="no-referrer"
+             />
+        </div>
+
         {/* Mail Icon with animated/elegant circle background */}
         <div id="mail-icon-wrapper" className="w-20 h-20 bg-red-50 text-red-600 rounded-full flex items-center justify-center mb-6 shadow-sm ring-4 ring-red-50">
           <Mail className="h-10 w-10 animate-pulse" />
