@@ -748,7 +748,7 @@ async function startServer() {
             contents.push({ role: 'user', parts: [{ text: message }] });
 
             const model = ai.models.generateContent({
-                model: 'gemini-2.5-flash',
+                model: 'gemini-3.5-flash',
                 config: {
                     systemInstruction: createSystemInstruction(shop),
                     temperature: 0.7,
@@ -1318,9 +1318,13 @@ async function startServer() {
                 required: ['slots']
             };
 
+            const shopName = shop?.name || 'la Barbería';
+            const serviceName = service || 'Servicio';
+            const targetDate = date || new Date().toISOString().split('T')[0];
+
             const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: `Eres el sistema de reservas para "${shop.name}". Genera horarios disponibles para "${service}" el "${date}". Devuelve JSON con clave "slots".`,
+                model: 'gemini-3.5-flash',
+                contents: `Eres el sistema de reservas para "${shopName}". Genera un conjunto de horarios disponibles para el servicio "${serviceName}" el día "${targetDate}". Devuelve un JSON con la clave "slots" conteniendo un array de strings de horas en formato HH:MM (ejemplo: "10:15"). Asegúrate de incluir entre 6 y 8 opciones distribuidas a lo largo del día.`,
                 config: {
                     responseMimeType: "application/json",
                     responseSchema: slotsSchema,
@@ -1328,7 +1332,7 @@ async function startServer() {
                 },
             });
 
-            res.json(JSON.parse(response.text || '{}'));
+            res.json(JSON.parse(response.text || '{"slots": []}'));
         } catch (error: any) {
             console.error('Error in /api/slots:', error);
             res.status(500).json({ error: error.message });
