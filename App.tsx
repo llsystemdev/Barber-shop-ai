@@ -27,6 +27,7 @@ import AdminView from './views/AdminView';
 import HomeView from './views/HomeView';
 import LoginView from './views/LoginView';
 import MirrorView from './views/MirrorView';
+import VerificationView from './views/VerificationView';
 import { getStyleRecommendations, generateStyledImage } from './services/geminiService';
 import { compressImage } from './services/imageCompression';
 import ImageModal from './components/ImageModal';
@@ -72,6 +73,7 @@ const App: React.FC = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [activeView, setActiveView] = useState<ActiveView>('admin');
   const [isInitializing, setIsInitializing] = useState(true);
+  const [isEmailUnverified, setIsEmailUnverified] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   
@@ -205,9 +207,19 @@ const App: React.FC = () => {
             const isGoogle = firebaseUser.providerData.some(p => p.providerId === 'google.com');
             if (!firebaseUser.emailVerified && !isGoogle) {
                 console.warn("[SECURITY] Unverified user tried to access dashboard!");
-                await localLogout();
-                setScreen('login');
+                setIsEmailUnverified(true);
+                setCurrentUser({
+                    id: user.id,
+                    name: user.name || 'Usuario',
+                    role: user.role || 'shopOwner',
+                    avatarUrl: user.avatarUrl || '',
+                    email: firebaseUser.email || ''
+                });
+                setScreen('app');
+                setIsInitializing(false);
                 return;
+            } else {
+                setIsEmailUnverified(false);
             }
         }
 
@@ -624,6 +636,27 @@ const App: React.FC = () => {
 
   if (screen === 'home') return <HomeView onShowLogin={() => setScreen('login')} onGoHome={() => setScreen('home')} onStartGuestMode={handleStartGuestMode} />;
   if (screen === 'login') return <LoginView onLogin={() => {}} onGoHome={() => setScreen('home')} />;
+
+  if (screen === 'app' && isEmailUnverified) {
+    return (
+      <VerificationView 
+        email={currentUser?.email || ''}
+        onGoBack={async () => {
+          lastHandledUserIdRef.current = null;
+          await localLogout();
+          setScreen('home');
+          setIsEmailUnverified(false);
+        }}
+        onVerifiedSuccess={async () => {
+          setIsEmailUnverified(false);
+          if (currentUser) {
+            lastHandledUserIdRef.current = null;
+            handleUserSession(currentUser);
+          }
+        }}
+      />
+    );
+  }
 
   if (screen === 'app' && shops.length === 0 && !currentUser?.isGuest && currentUser?.role !== 'platformAdmin') {
     return (

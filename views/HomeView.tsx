@@ -18,7 +18,6 @@ const HomeView: React.FC<HomeViewProps> = ({ onShowLogin, onGoHome, onStartGuest
   
   const [isSupportOpen, setIsSupportOpen] = useState(false);
   const [isContactOpen, setIsContactOpen] = useState(false);
-  const [isStatusOpen, setIsStatusOpen] = useState(false);
 
   // Support Form State
   const [supportName, setSupportName] = useState('');
@@ -697,7 +696,6 @@ const HomeView: React.FC<HomeViewProps> = ({ onShowLogin, onGoHome, onStartGuest
           <div className="flex space-x-6 text-xs text-slate-500 font-semibold">
             <span onClick={() => setIsSupportOpen(true)} className="hover:text-white transition-colors cursor-pointer">Soporte</span>
             <span onClick={() => setIsContactOpen(true)} className="hover:text-white transition-colors cursor-pointer">Contacto</span>
-            <span onClick={() => setIsStatusOpen(true)} className="hover:text-white transition-colors cursor-pointer">Estatus</span>
           </div>
         </div>
       </footer>
@@ -1075,115 +1073,6 @@ const HomeView: React.FC<HomeViewProps> = ({ onShowLogin, onGoHome, onStartGuest
                     </div>
                   </form>
                 )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Estatus Modal */}
-      {isStatusOpen && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[150] flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full shadow-2xl overflow-hidden font-sans text-slate-300">
-            <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-950/40">
-              <div className="flex items-center gap-2">
-                <span className="text-xl">📊</span>
-                <h3 className="text-lg font-black uppercase tracking-tight text-white">Estatus de Servicios</h3>
-              </div>
-              <button 
-                onClick={() => setIsStatusOpen(false)}
-                className="text-slate-400 hover:text-white font-bold text-lg"
-              >
-                ✕
-              </button>
-            </div>
-            
-            <div className="p-6 space-y-6">
-              {/* Header Status Bar */}
-              <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-2xl flex items-center gap-4">
-                <div className="relative flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-                </div>
-                <div className="text-left">
-                  <p className="text-xs font-black text-emerald-400 uppercase tracking-wider">Sistemas Operacionales</p>
-                  <p className="text-[10px] text-slate-400 font-semibold leading-relaxed">Todos los servicios de inteligencia artificial y de agenda se encuentran en línea.</p>
-                </div>
-              </div>
-
-              {/* Individual Services */}
-              <div className="space-y-4 text-left">
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-800/60 pb-2">Servicios Clave</h4>
-                
-                <div className="flex justify-between items-center text-xs">
-                  <div className="space-y-0.5">
-                    <p className="font-bold text-white uppercase tracking-tight">Motor de Visagismo IA</p>
-                    <p className="text-[9px] text-slate-500 font-semibold">Tiempo de respuesta promedio: 1.2s</p>
-                  </div>
-                  <div className="flex items-center gap-1.5 font-sans">
-                    <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">99.98%</span>
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 block"></span>
-                  </div>
-                </div>
-
-                <div className="flex justify-between items-center text-xs">
-                  <div className="space-y-0.5">
-                    <p className="font-bold text-white uppercase tracking-tight">Base de Datos (Firestore)</p>
-                    <p className="text-[9px] text-slate-500 font-semibold">Réplica activa de baja latencia</p>
-                  </div>
-                  <div className="flex items-center gap-1.5 font-sans">
-                    <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">100.0%</span>
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 block"></span>
-                  </div>
-                </div>
-
-                <div className="flex justify-between items-center text-xs">
-                  <div className="space-y-0.5">
-                    <p className="font-bold text-white uppercase tracking-tight">Pasarela de Pagos (Stripe)</p>
-                    <p className="text-[9px] text-slate-500 font-semibold">Integración de checkout de suscripción</p>
-                  </div>
-                  <div className="flex items-center gap-1.5 font-sans">
-                    <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">100.0%</span>
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 block"></span>
-                  </div>
-                </div>
-
-                <div className="flex justify-between items-center text-xs">
-                  <div className="space-y-0.5">
-                    <p className="font-bold text-white uppercase tracking-tight">API de Reservas y Sincronización</p>
-                    <p className="text-[9px] text-slate-500 font-semibold">Gestor de turnos offline/online</p>
-                  </div>
-                  <div className="flex items-center gap-1.5 font-sans">
-                    <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">99.99%</span>
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 block"></span>
-                  </div>
-                </div>
-
-                <div className="flex justify-between items-center text-xs">
-                  <div className="space-y-0.5">
-                    <p className="font-bold text-white uppercase tracking-tight">Servidor de Almacenamiento CDN</p>
-                    <p className="text-[9px] text-slate-500 font-semibold">Guardado y cache de fotos faciales</p>
-                  </div>
-                  <div className="flex items-center gap-1.5 font-sans">
-                    <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">100.0%</span>
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 block"></span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Recent Incident logs */}
-              <div className="bg-slate-950/40 p-3 rounded-xl border border-slate-800 text-left space-y-1">
-                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Historial de Incidentes</p>
-                <p className="text-xs text-slate-300 font-semibold leading-relaxed">No se reportan incidentes ni degradación de servicio en las últimas 72 horas.</p>
-              </div>
-
-              <div className="pt-2">
-                <button 
-                  onClick={() => setIsStatusOpen(false)}
-                  className="w-full bg-slate-800 hover:bg-slate-750 text-slate-300 font-black text-xs uppercase tracking-widest py-3 rounded-xl transition-all"
-                >
-                  Entendido
-                </button>
               </div>
             </div>
           </div>

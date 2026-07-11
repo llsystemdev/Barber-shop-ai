@@ -50,11 +50,7 @@ const VerificationView: React.FC<VerificationViewProps> = ({ email, onGoBack, on
         console.warn('Could not reload Firebase user in sandbox environment:', reloadErr);
       }
       
-      const isDev = true; // Automatically bypass in development mode
-      if (currentUser.emailVerified || isDev) {
-        if (isDev) {
-          console.log('[Dev Sandbox] Auto-verifying email for testing purposes.');
-        }
+      if (currentUser.emailVerified) {
         onVerifiedSuccess(currentUser);
       } else {
         setError("Aún no hemos detectado la confirmación de tu correo.");

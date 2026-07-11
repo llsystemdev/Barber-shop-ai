@@ -69,6 +69,7 @@ export interface User {
   avatarUrl: string;
   shopId?: string; // Only for shopOwner
   isGuest?: boolean; // Added for guest mode
+  email?: string;
 }
 
 
