@@ -5,7 +5,7 @@ import { GoogleGenAI, Modality, Type } from "@google/genai";
 import dotenv from 'dotenv';
 import path from 'path';
 import crypto from 'crypto';
-import { getDb, saveDb, hashPassword, generateSalt, firestore, storageBucket, firebaseConfig } from './database';
+import { getDb, saveDb, hashPassword, generateSalt, firestore, storageBucket, firebaseConfig, isFirestoreReady, disableFirestore } from './database';
 import Stripe from 'stripe';
 
 // Enterprise Layer Imports
@@ -750,7 +750,19 @@ async function startServer() {
                 return publicUrl;
             }
         } catch (error: any) {
-            console.error('[Backend Upload Error]', error);
+            const isExpectedStorageError = 
+                error.name === 'GaxiosError' || 
+                error.constructor?.name === 'GaxiosError' ||
+                error.message?.includes('credentials') || 
+                error.message?.includes('Gaxios') ||
+                error.code === 403 ||
+                error.code === '403';
+            
+            if (isExpectedStorageError) {
+                console.warn('[Backend Upload] Firebase Storage write permission denied or unauthenticated (expected in some sandboxed environments). Successfully falling back to Base64 URI.');
+            } else {
+                console.warn('[Backend Upload] Firebase Storage write failed. Successfully falling back to Base64 URI.', error.message || error);
+            }
             return base64; // Return base64 as fallback
         }
     }
@@ -903,9 +915,9 @@ async function startServer() {
             parsedResult.finalRecommendation = parsedResult.analysis || '';
 
             // Durable Cloud Persistence: Save the real analysis to Firestore if active
-            if (firestore) {
+            if (isFirestoreReady()) {
                 try {
-                    const docRef = await firestore.collection('analyses').add({
+                    const docRef = await firestore!.collection('analyses').add({
                         userId: userId || 'guest',
                         timestamp: new Date().toISOString(),
                         frontImageUrl: frontImageUrl || 'base64_upload',
@@ -918,7 +930,13 @@ async function startServer() {
                     console.log(`[Visagismo AI] Análisis registrado exitosamente en Firestore con ID: ${docRef.id}`);
                     parsedResult.analysisId = docRef.id;
                 } catch (dbError: any) {
-                    console.warn('[Visagismo AI] Error al registrar análisis en Firestore:', dbError.message || dbError);
+                    const errMsg = dbError?.message || String(dbError);
+                    if (errMsg.includes('PERMISSION_DENIED') || errMsg.includes('insufficient permissions') || errMsg.includes('7')) {
+                        disableFirestore();
+                        console.warn('[Visagismo AI] Permission denied writing to Firestore. Disabled cloud sync, falling back securely to Local Mode.');
+                    } else {
+                        console.warn('[Visagismo AI] Error al registrar análisis en Firestore:', errMsg);
+                    }
                 }
             }
 

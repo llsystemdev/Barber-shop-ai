@@ -109,7 +109,15 @@ export function generateSalt(): string {
 
 let dbInstance: DatabaseSchema | null = null;
 let writePromise: Promise<void> = Promise.resolve();
-let isFirestoreDisabled = false;
+export let isFirestoreDisabled = false;
+
+export function disableFirestore() {
+  isFirestoreDisabled = true;
+}
+
+export function isFirestoreReady(): boolean {
+  return !!firestore && !isFirestoreDisabled;
+}
 
 // Synchronize all database collections from Firestore
 async function syncFromFirestore(dbSchema: DatabaseSchema) {
