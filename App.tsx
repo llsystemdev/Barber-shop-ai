@@ -321,6 +321,24 @@ const App: React.FC = () => {
           const compressedFront = await compressImage(front, 800, 800, 0.8);
           const compressedSide = await compressImage(side, 800, 800, 0.8);
 
+          // Convert files to base64 payloads to offer a 100% reliable direct transmission bypass to the server
+          const fileToBase64Payload = async (file: File): Promise<{ data: string, mimeType: string }> => {
+              const base64WithHeader = await new Promise<string>((resolve, reject) => {
+                  const reader = new FileReader();
+                  reader.readAsDataURL(file);
+                  reader.onload = () => resolve(reader.result as string);
+                  reader.onerror = error => reject(error);
+              });
+              const match = base64WithHeader.match(/^data:([^;]+);base64,(.+)$/);
+              if (match) {
+                  return { mimeType: match[1], data: match[2] };
+              }
+              return { mimeType: file.type || 'image/jpeg', data: base64WithHeader };
+          };
+
+          const frontBase64 = await fileToBase64Payload(compressedFront);
+          const sideBase64 = await fileToBase64Payload(compressedSide);
+
           console.log('[Visagismo AI] Subiendo foto de frente a Firebase Storage...');
           const frontUrl = await uploadShopImage(compressedFront, currentShop.id, 'galery');
           console.log('[Visagismo AI] Subiendo foto de perfil a Firebase Storage...');
@@ -334,7 +352,9 @@ const App: React.FC = () => {
               frontUrl,
               sideUrl,
               currentShop,
-              currentUser?.id
+              currentUser?.id,
+              frontBase64,
+              sideBase64
           );
 
           setSuggestedStyles(analysis.styles);

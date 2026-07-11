@@ -20,7 +20,9 @@ export async function getStyleRecommendations(
     frontImageUrl: string, 
     sideImageUrl: string, 
     shop: BarberShop, 
-    userId?: string
+    userId?: string,
+    frontImage?: { data: string, mimeType: string },
+    sideImage?: { data: string, mimeType: string }
 ): Promise<{ styles: string[], finalRecommendation: string, [key: string]: any }> {
     try {
         const response = await fetch('/api/analyze', {
@@ -30,7 +32,9 @@ export async function getStyleRecommendations(
                 frontImageUrl,
                 sideImageUrl,
                 shop,
-                userId
+                userId,
+                frontImage,
+                sideImage
             })
         });
 

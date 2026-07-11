@@ -772,6 +772,19 @@ async function startServer() {
                     return { mimeType: match[1], data: match[2] };
                 }
             }
+            
+            // Robust local relative path handling
+            if (url.startsWith('/') || !url.startsWith('http')) {
+                console.log(`[Visagismo AI] Detectada ruta local/relativa, cargando directamente de disco: ${url}`);
+                const fileName = url.split('/').pop()!;
+                const filePath = path.join(process.cwd(), 'uploads', fileName);
+                const buffer = await fs.readFile(filePath);
+                const fileExtension = fileName.split('.').pop() || 'jpeg';
+                const mimeType = `image/${fileExtension === 'jpg' ? 'jpeg' : fileExtension}`;
+                const data = buffer.toString('base64');
+                return { data, mimeType };
+            }
+
             const res = await safeFetch(url);
             if (!res.ok) {
                 throw new Error(`Fallo al descargar la imagen de la URL: ${res.statusText}`);
@@ -891,15 +904,12 @@ async function startServer() {
                 return res.status(500).json({ error: "No fue posible completar el análisis. Inténtalo nuevamente." });
             }
 
-            let frontData: { data: string; mimeType: string };
-            let sideData: { data: string; mimeType: string };
+            let frontData: { data: string; mimeType: string } | null = null;
+            let sideData: { data: string; mimeType: string } | null = null;
 
             try {
-                if (frontImageUrl && sideImageUrl) {
-                    console.log(`[Visagismo AI] Descargando imágenes reales de Storage: Frontal: ${frontImageUrl}, Perfil: ${sideImageUrl}`);
-                    frontData = await fetchImageAsBase64(frontImageUrl);
-                    sideData = await fetchImageAsBase64(sideImageUrl);
-                } else if (frontImage && sideImage) {
+                // 1. Try direct base64 payloads if provided
+                if (frontImage && sideImage) {
                     console.log('[Visagismo AI] Procesando imágenes base64 recibidas directamente.');
                     frontData = {
                         data: frontImage.data,
@@ -909,11 +919,34 @@ async function startServer() {
                         data: sideImage.data,
                         mimeType: sideImage.mimeType || 'image/jpeg'
                     };
-                } else {
-                    return res.status(400).json({ error: "Se requieren ambas fotografías (frente y perfil) para realizar el análisis." });
+                }
+
+                // 2. Fallback to downloading from storage URLs
+                if (!frontData || !sideData) {
+                    if (frontImageUrl && sideImageUrl) {
+                        try {
+                            console.log(`[Visagismo AI] Cargando/Descargando imágenes: Frontal: ${frontImageUrl}, Perfil: ${sideImageUrl}`);
+                            if (!frontData) frontData = await fetchImageAsBase64(frontImageUrl);
+                            if (!sideData) sideData = await fetchImageAsBase64(sideImageUrl);
+                        } catch (downloadError) {
+                            console.warn('[Visagismo AI] Error cargando imágenes por URL, intentando respaldo...', downloadError);
+                        }
+                    }
+                }
+
+                // 3. Fallback to direct parsing if URLs themselves are base64-encoded strings
+                if (!frontData && frontImageUrl && frontImageUrl.startsWith('data:')) {
+                    frontData = await fetchImageAsBase64(frontImageUrl);
+                }
+                if (!sideData && sideImageUrl && sideImageUrl.startsWith('data:')) {
+                    sideData = await fetchImageAsBase64(sideImageUrl);
+                }
+
+                if (!frontData || !sideData) {
+                    return res.status(400).json({ error: "Se requieren ambas fotografías en un formato válido para realizar el análisis." });
                 }
             } catch (downloadError: any) {
-                console.error('[Visagismo AI] Error descargando imágenes:', downloadError);
+                console.error('[Visagismo AI] Error procesando o descargando imágenes:', downloadError);
                 return res.status(500).json({ 
                     error: "No fue posible completar el análisis. Inténtalo nuevamente.",
                     details: `Error al procesar imágenes: ${downloadError.message || downloadError}`
