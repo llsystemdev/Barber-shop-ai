@@ -239,7 +239,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onShowLogin, onGoHome, onStartGuest
           <button onClick={onGoHome} className="flex items-center space-x-2.5 group focus:outline-none focus:ring-2 focus:ring-red-500 rounded-xl px-1 py-0.5 transition-all">
             <div className="w-9 h-9 rounded-xl overflow-hidden bg-slate-900 flex items-center justify-center shadow-md shadow-slate-950/50 group-hover:scale-105 transition-transform duration-200 border border-slate-800">
               <img 
-                src="https://firebasestorage.googleapis.com/v0/b/barber-sho-ai.firebasestorage.app/o/admin-things%2Flogo%20barber-shop-ai.png?alt=media&token=c4c811d7-16ac-471b-b23d-c2936f2fba85" 
+                src="/favicon.svg" 
                 alt="Logo" 
                 className="w-full h-full object-cover"
                 referrerPolicy="no-referrer"

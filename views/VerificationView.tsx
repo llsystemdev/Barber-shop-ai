@@ -91,7 +91,7 @@ const VerificationView: React.FC<VerificationViewProps> = ({ email, onGoBack, on
         {/* Brand Logo */}
         <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-900 border border-slate-100 shadow-md flex items-center justify-center mb-4">
              <img 
-                 src="https://firebasestorage.googleapis.com/v0/b/barber-sho-ai.firebasestorage.app/o/admin-things%2Flogo%20barber-shop-ai.png?alt=media&token=c4c811d7-16ac-471b-b23d-c2936f2fba85" 
+                 src="/favicon.svg" 
                  alt="Logo" 
                  className="w-full h-full object-cover"
                  referrerPolicy="no-referrer"

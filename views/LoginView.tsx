@@ -100,7 +100,7 @@ const LoginView: React.FC<{ onLogin: any, onGoHome: any }> = ({ onGoHome }) => {
                 <button onClick={onGoHome} className="text-left focus:outline-none rounded-lg p-1 flex flex-col items-start gap-4">
                     <div className="w-16 h-16 rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 shadow-xl flex items-center justify-center">
                         <img 
-                            src="https://firebasestorage.googleapis.com/v0/b/barber-sho-ai.firebasestorage.app/o/admin-things%2Flogo%20barber-shop-ai.png?alt=media&token=c4c811d7-16ac-471b-b23d-c2936f2fba85" 
+                            src="/favicon.svg" 
                             alt="Logo" 
                             className="w-full h-full object-cover"
                             referrerPolicy="no-referrer"
@@ -134,7 +134,7 @@ const LoginView: React.FC<{ onLogin: any, onGoHome: any }> = ({ onGoHome }) => {
             <div className="w-full max-w-md mx-auto">
                  <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-900 border border-slate-100 shadow-md flex items-center justify-center mb-4">
                      <img 
-                         src="https://firebasestorage.googleapis.com/v0/b/barber-sho-ai.firebasestorage.app/o/admin-things%2Flogo%20barber-shop-ai.png?alt=media&token=c4c811d7-16ac-471b-b23d-c2936f2fba85" 
+                         src="/favicon.svg" 
                          alt="Logo" 
                          className="w-full h-full object-cover"
                          referrerPolicy="no-referrer"
