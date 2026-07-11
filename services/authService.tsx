@@ -9,7 +9,7 @@ import {
   signOut, 
   sendPasswordResetEmail 
 } from '../firebase/client';
-import { onAuthStateChanged as firebaseOnAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged as firebaseOnAuthStateChanged, sendEmailVerification } from 'firebase/auth';
 
 // Type definitions for our Auth Context
 export interface AuthContextType {
@@ -47,6 +47,12 @@ export const loginWithEmail = async (email: string, password: string) => {
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const firebaseUser = userCredential.user;
+    
+    if (!firebaseUser.emailVerified) {
+      await signOut(auth);
+      setActiveUser(null);
+      return { data: null, error: new Error("Debes verificar tu correo electrónico antes de acceder a la plataforma.") };
+    }
     
     // Check if there is an explicit role selected in UI or fallback to typical roles
     const role = localStorage.getItem('userRole') || (email.toLowerCase().includes('admin') ? 'platformAdmin' : 'shopOwner');
@@ -177,6 +183,9 @@ export const registerWithEmail = async (email: string, password: string, name: s
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const firebaseUser = userCredential.user;
     
+    // Immediately send email verification
+    await sendEmailVerification(firebaseUser);
+    
     const role = 'shopOwner'; // Default newly registered users as shopOwner SaaS tenant
     
     const appUser: AppUser = {
@@ -194,8 +203,8 @@ export const registerWithEmail = async (email: string, password: string, name: s
       body: JSON.stringify({ user: appUser })
     });
 
-    setActiveUser(appUser);
-    return { data: { user: appUser }, error: null };
+    // Note: We do NOT call setActiveUser(appUser) here so they aren't logged in automatically
+    return { data: { user: appUser, firebaseUser }, error: null };
   } catch (err: any) {
     console.error('[registerWithEmail Error]', err);
     return { data: null, error: err };
@@ -243,6 +252,14 @@ export const onAuthStateChanged = (arg1: any, arg2?: any) => {
   
   return firebaseOnAuthStateChanged(auth, async (firebaseUser) => {
     if (firebaseUser) {
+      const isGoogle = firebaseUser.providerData.some(p => p.providerId === 'google.com');
+      
+      if (!firebaseUser.emailVerified && !isGoogle) {
+        localStorage.removeItem('mock_user_session');
+        callback(null);
+        return;
+      }
+
       const savedSession = localStorage.getItem('mock_user_session');
       let appUser = savedSession ? JSON.parse(savedSession) : null;
       

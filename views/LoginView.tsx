@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { loginWithEmail, loginWithGoogle, registerWithEmail, resetPassword } from '../services/authService';
+import VerificationView from './VerificationView';
 
 const GoogleIcon = () => (
     <svg className="w-5 h-5 mr-3" viewBox="0 0 48 48">
@@ -22,6 +23,7 @@ const LoginView: React.FC<{ onLogin: any, onGoHome: any }> = ({ onGoHome }) => {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
 
   const handleRoleChange = (newRole: 'platformAdmin' | 'shopOwner') => {
       setRole(newRole);
@@ -41,8 +43,11 @@ const LoginView: React.FC<{ onLogin: any, onGoHome: any }> = ({ onGoHome }) => {
             if (error) throw error;
             setSuccessMsg("¡Correo enviado! Revisa tu bandeja de entrada para restablecer tu clave.");
         } else if (isRegistering) {
-            const { error } = await registerWithEmail(email, password, name);
+            const { data, error } = await registerWithEmail(email, password, name);
             if (error) throw error;
+            if (data && data.user) {
+                setUnverifiedEmail(email);
+            }
         } else {
             const { error } = await loginWithEmail(email, password);
             if (error) throw error;
@@ -69,6 +74,18 @@ const LoginView: React.FC<{ onLogin: any, onGoHome: any }> = ({ onGoHome }) => {
           setGoogleLoading(false);
       }
   };
+
+  if (unverifiedEmail) {
+    return (
+      <VerificationView 
+        email={unverifiedEmail}
+        onGoBack={() => setUnverifiedEmail(null)}
+        onVerifiedSuccess={() => {
+          window.location.reload();
+        }}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">

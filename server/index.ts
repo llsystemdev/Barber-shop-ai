@@ -5,8 +5,93 @@ import { GoogleGenAI, Modality, Type } from "@google/genai";
 import dotenv from 'dotenv';
 import path from 'path';
 import crypto from 'crypto';
+import https from 'https';
 import { getDb, saveDb, hashPassword, generateSalt, firestore, storageBucket, firebaseConfig, isFirestoreReady, disableFirestore } from './database';
 import Stripe from 'stripe';
+
+// Global error handlers to prevent container crashes on unhandled exceptions (which cause 503 errors)
+process.on('uncaughtException', (error) => {
+    console.error('[CRITICAL SEVERE] Uncaught Exception:', error?.message || error, error?.stack || '');
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[CRITICAL SEVERE] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+// A highly robust fetch wrapper with native https fallback for maximum environment compatibility
+async function safeFetch(url: string, options: any = {}): Promise<any> {
+    const timeout = options.timeout || 10000;
+    
+    // Check if standard global fetch is available
+    if (typeof fetch === 'function') {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+        try {
+            const response = await fetch(url, {
+                ...options,
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            return response;
+        } catch (fetchError: any) {
+            clearTimeout(timeoutId);
+            // If it was an abort/timeout error or if global fetch failed, try the robust https fallback
+            console.warn(`[safeFetch] Global fetch failed for ${url}, attempting native HTTPS fallback...`, fetchError.message || fetchError);
+        }
+    }
+
+    // Native HTTPS module fallback
+    return new Promise((resolve, reject) => {
+        try {
+            const parsedUrl = new URL(url);
+            const reqOptions: https.RequestOptions = {
+                method: options.method || 'GET',
+                hostname: parsedUrl.hostname,
+                port: parsedUrl.port || (parsedUrl.protocol === 'https:' ? 443 : 80),
+                path: parsedUrl.pathname + parsedUrl.search,
+                headers: options.headers || {},
+                timeout: timeout,
+            };
+
+            const req = https.request(reqOptions, (res) => {
+                const chunks: any[] = [];
+                res.on('data', (chunk) => chunks.push(chunk));
+                res.on('end', () => {
+                    const body = Buffer.concat(chunks).toString('utf-8');
+                    resolve({
+                        ok: res.statusCode ? res.statusCode >= 200 && res.statusCode < 300 : false,
+                        status: res.statusCode,
+                        statusText: res.statusMessage,
+                        json: async () => JSON.parse(body),
+                        text: async () => body,
+                        headers: {
+                            get: (name: string) => {
+                                const val = res.headers[name.toLowerCase()];
+                                return Array.isArray(val) ? val.join(', ') : val;
+                            }
+                        }
+                    });
+                });
+            });
+
+            req.on('error', (err) => {
+                reject(err);
+            });
+
+            req.on('timeout', () => {
+                req.destroy();
+                reject(new Error('Request timeout'));
+            });
+
+            if (options.body) {
+                req.write(options.body);
+            }
+            req.end();
+        } catch (fallbackError) {
+            reject(fallbackError);
+        }
+    });
+}
 
 // Enterprise Layer Imports
 import { securityHeaders, sanitizeInput, rateLimiter, validateImageUpload } from './security';
@@ -363,7 +448,7 @@ async function startServer() {
             const redirectUri = `${protocol}://${host}/api/auth/google/callback`;
 
             // Canjear el código por tokens
-            const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+            const tokenRes = await safeFetch('https://oauth2.googleapis.com/token', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: new URLSearchParams({
@@ -384,7 +469,7 @@ async function startServer() {
             const { access_token } = tokenData;
 
             // Obtener la información de perfil del usuario
-            const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+            const userInfoRes = await safeFetch('https://www.googleapis.com/oauth2/v2/userinfo', {
                 headers: { Authorization: `Bearer ${access_token}` }
             });
 
@@ -683,7 +768,7 @@ async function startServer() {
                     return { mimeType: match[1], data: match[2] };
                 }
             }
-            const res = await fetch(url);
+            const res = await safeFetch(url);
             if (!res.ok) {
                 throw new Error(`Fallo al descargar la imagen de la URL: ${res.statusText}`);
             }

@@ -11,6 +11,7 @@ import {
     uploadShopImage
 } from './services/barberShopService';
 import { onAuthStateChanged, logoutUser as localLogout, loginWithGoogle } from './services/authService';
+import { auth } from './firebase/client';
 
 import Sidebar from './components/Sidebar';
 import MainHeader from './components/MainHeader';
@@ -167,6 +168,17 @@ const App: React.FC = () => {
   const handleUserSession = async (user: any) => {
     console.log("Iniciando handleUserSession para:", user.id);
     try {
+        const firebaseUser = auth.currentUser;
+        if (firebaseUser) {
+            const isGoogle = firebaseUser.providerData.some(p => p.providerId === 'google.com');
+            if (!firebaseUser.emailVerified && !isGoogle) {
+                console.warn("[SECURITY] Unverified user tried to access dashboard!");
+                await localLogout();
+                setScreen('login');
+                return;
+            }
+        }
+
         console.log("Intentando obtener barbería del usuario...");
         let shop = await getShopForUser(user.id);
         console.log("Barbería obtenida:", shop);
