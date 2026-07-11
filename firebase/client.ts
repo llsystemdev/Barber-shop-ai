@@ -14,8 +14,9 @@ const firestoreSettings = {
   experimentalForceLongPolling: true
 };
 
-export const db = (firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== "(default)") 
-  ? initializeFirestore(app, firestoreSettings, firebaseConfig.firestoreDatabaseId)
+const dbId = firebaseConfig.firestoreDatabaseId;
+export const db = (dbId && dbId !== "(default)" && dbId !== "default" && dbId !== "") 
+  ? initializeFirestore(app, firestoreSettings, dbId)
   : initializeFirestore(app, firestoreSettings);
 
 export const storage = getStorage(app);
