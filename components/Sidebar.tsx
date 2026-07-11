@@ -2,8 +2,9 @@
 import React from 'react';
 import { BarberShop, User } from '../types';
 import { ChatIcon, MirrorIcon, CalendarIcon, BookingsIcon, ShopIcon, BillingIcon, DashboardIcon, LogoutIcon, BriefcaseIcon } from '../assets/icons';
+import { BookOpen } from 'lucide-react';
 
-type ActiveView = 'chat' | 'mirror' | 'booking' | 'bookingsList' | 'shopProfile' | 'billing' | 'admin' | 'platformAdmin';
+type ActiveView = 'chat' | 'mirror' | 'booking' | 'bookingsList' | 'shopProfile' | 'billing' | 'admin' | 'platformAdmin' | 'blog';
 
 interface SidebarProps {
   currentUser?: User | null;
@@ -62,6 +63,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { view: 'mirror', label: 'Espejo Virtual', icon: <MirrorIcon className="w-6 h-6" /> },
     { view: 'booking', label: 'Reservar Cita', icon: <CalendarIcon className="w-6 h-6" /> },
     { view: 'bookingsList', label: 'Mis Reservas', icon: <BookingsIcon className="w-6 h-6" /> },
+    { view: 'blog', label: 'Blog de Barbería', icon: <BookOpen className="w-6 h-6" /> },
     { view: 'shopProfile', label: 'Perfil de la Barbería', icon: <ShopIcon className="w-6 h-6" /> },
     { view: 'billing', label: 'Facturación y Plan', icon: <BillingIcon className="w-6 h-6" /> },
   ] as const;

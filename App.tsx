@@ -18,16 +18,20 @@ import { auth } from './firebase/client';
 
 import Sidebar from './components/Sidebar';
 import MainHeader from './components/MainHeader';
-import ChatView from './views/ChatView';
-import BookingView from './views/BookingView';
-import BookingsListView from './views/BookingsListView';
-import ShopProfileView from './views/ShopProfileView';
-import BillingView from './views/BillingView';
-import AdminView from './views/AdminView';
 import HomeView from './views/HomeView';
 import LoginView from './views/LoginView';
-import MirrorView from './views/MirrorView';
 import VerificationView from './views/VerificationView';
+
+// Code Splitting / Lazy Loading for App Modules
+const ChatView = React.lazy(() => import('./views/ChatView'));
+const BookingView = React.lazy(() => import('./views/BookingView'));
+const BookingsListView = React.lazy(() => import('./views/BookingsListView'));
+const ShopProfileView = React.lazy(() => import('./views/ShopProfileView'));
+const BillingView = React.lazy(() => import('./views/BillingView'));
+const AdminView = React.lazy(() => import('./views/AdminView'));
+const MirrorView = React.lazy(() => import('./views/MirrorView'));
+const BlogView = React.lazy(() => import('./views/BlogView'));
+
 import { getStyleRecommendations, generateStyledImage } from './services/geminiService';
 import { compressImage } from './services/imageCompression';
 import ImageModal from './components/ImageModal';
@@ -35,7 +39,7 @@ import GuestLimitModal from './components/GuestLimitModal';
 import { SupportWidget } from './components/SupportWidget';
 import { GDPRBanner } from './components/GDPRBanner';
 
-type ActiveView = 'chat' | 'mirror' | 'booking' | 'bookingsList' | 'shopProfile' | 'billing' | 'admin' | 'platformAdmin';
+type ActiveView = 'chat' | 'mirror' | 'booking' | 'bookingsList' | 'shopProfile' | 'billing' | 'admin' | 'platformAdmin' | 'blog';
 type Screen = 'home' | 'login' | 'app';
 type MirrorState = 'initial' | 'processing' | 'results';
 
@@ -710,6 +714,12 @@ const App: React.FC = () => {
       <div className="flex-1 flex flex-col">
         <MainHeader title={activeView} onMenuClick={() => setIsSidebarOpen(true)} />
         <main className="flex-1 overflow-y-auto">
+          <React.Suspense fallback={
+            <div className="flex-1 flex flex-col items-center justify-center p-12 bg-slate-50 min-h-[60vh]">
+              <div className="w-10 h-10 border-4 border-red-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+              <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest animate-pulse">Cargando módulo...</p>
+            </div>
+          }>
             {(activeView === 'admin' || activeView === 'platformAdmin') && (
                 <AdminView 
                     currentUser={currentUser}
@@ -774,6 +784,14 @@ const App: React.FC = () => {
             {activeView === 'bookingsList' && <BookingsListView bookings={bookings} onNavigate={(v) => setActiveView(v as any)} />}
             {activeView === 'shopProfile' && <ShopProfileView shop={currentShop} onUpdateProfile={(s) => setShops([s])} onDeleteShop={handleDeleteShop} />}
             {activeView === 'billing' && <BillingView shop={currentShop} onUpdatePlan={handleUpdatePlan} onUpdatePaymentMethod={handleUpdatePaymentMethod} />}
+            {activeView === 'blog' && (
+                <BlogView 
+                    currentUser={currentUser}
+                    currentShop={currentShop}
+                    onNavigateBack={() => setActiveView('admin')}
+                />
+            )}
+          </React.Suspense>
         </main>
       </div>
       {selectedImageForModal && (

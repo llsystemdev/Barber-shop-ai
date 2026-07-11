@@ -171,4 +171,34 @@ export interface SecurityAnomaly {
   severity: 'high' | 'medium';
 }
 
+export interface BlogComment {
+  id: string;
+  author: string;
+  text: string;
+  date: string;
+  approved: boolean;
+}
+
+export interface BlogPost {
+  id: string;
+  shopId: string;
+  title: string;
+  slug: string;
+  metaTitle: string;
+  metaDescription: string;
+  featuredImage: string;
+  gallery?: string[];
+  content: string;
+  categories: string[];
+  tags: string[];
+  authorName: string;
+  createdAt: string;
+  readTime: string;
+  tableOfContents?: Array<{ id: string; text: string; level: number }>;
+  comments?: BlogComment[];
+  relatedPostIds?: string[];
+  isPublished: boolean;
+}
+
+
 
