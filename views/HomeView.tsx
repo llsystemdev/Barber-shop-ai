@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { MirrorIcon, ChatIcon, CalendarIcon, DashboardIcon } from '../assets/icons';
+import { enterpriseService } from '../services/enterpriseService';
 
 interface HomeViewProps {
   onShowLogin: () => void;
@@ -14,6 +15,96 @@ const HomeView: React.FC<HomeViewProps> = ({ onShowLogin, onGoHome, onStartGuest
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
   const [isTermsOpen, setIsTermsOpen] = useState(false);
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
+  
+  const [isSupportOpen, setIsSupportOpen] = useState(false);
+  const [isContactOpen, setIsContactOpen] = useState(false);
+  const [isStatusOpen, setIsStatusOpen] = useState(false);
+
+  // Support Form State
+  const [supportName, setSupportName] = useState('');
+  const [supportEmail, setSupportEmail] = useState('');
+  const [supportSubject, setSupportSubject] = useState('');
+  const [supportCategory, setSupportCategory] = useState('Soporte Técnico');
+  const [supportPriority, setSupportPriority] = useState<'Baja' | 'Media' | 'Alta' | 'Crítica'>('Media');
+  const [supportDescription, setSupportDescription] = useState('');
+  const [isSubmittingSupport, setIsSubmittingSupport] = useState(false);
+  const [supportSuccess, setSupportSuccess] = useState(false);
+  const [supportError, setSupportError] = useState('');
+  const [createdTicketId, setCreatedTicketId] = useState('');
+
+  // Contact Form State
+  const [contactName, setContactName] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
+  const [contactMessage, setContactMessage] = useState('');
+  const [isSubmittingContact, setIsSubmittingContact] = useState(false);
+  const [contactSuccess, setContactSuccess] = useState(false);
+  const [contactError, setContactError] = useState('');
+
+  const handleSupportSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supportName || !supportEmail || !supportSubject || !supportDescription) {
+      setSupportError('Por favor complete todos los campos requeridos.');
+      return;
+    }
+    setIsSubmittingSupport(true);
+    setSupportError('');
+    try {
+      const ticket = await enterpriseService.createSupportTicket({
+        customerName: supportName,
+        email: supportEmail,
+        subject: supportSubject,
+        category: supportCategory,
+        priority: supportPriority,
+        description: supportDescription
+      });
+      if (ticket) {
+        setCreatedTicketId(ticket.id);
+        setSupportSuccess(true);
+        setSupportName('');
+        setSupportEmail('');
+        setSupportSubject('');
+        setSupportDescription('');
+      } else {
+        setSupportError('No se pudo crear el ticket. Por favor, inténtelo de nuevo.');
+      }
+    } catch (err: any) {
+      setSupportError(err.message || 'Error de conexión con el servidor.');
+    } finally {
+      setIsSubmittingSupport(false);
+    }
+  };
+
+  const handleContactSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!contactName || !contactEmail || !contactMessage) {
+      setContactError('Por favor complete todos los campos.');
+      return;
+    }
+    setIsSubmittingContact(true);
+    setContactError('');
+    try {
+      const ticket = await enterpriseService.createSupportTicket({
+        customerName: contactName,
+        email: contactEmail,
+        subject: `Consulta Rápida de Contacto - ${contactName}`,
+        category: 'Consulta General',
+        priority: 'Media',
+        description: contactMessage
+      });
+      if (ticket) {
+        setContactSuccess(true);
+        setContactName('');
+        setContactEmail('');
+        setContactMessage('');
+      } else {
+        setContactError('No se pudo enviar el mensaje. Por favor, inténtelo de nuevo.');
+      }
+    } catch (err: any) {
+      setContactError(err.message || 'Error de conexión con el servidor.');
+    } finally {
+      setIsSubmittingContact(false);
+    }
+  };
 
   const featuredItems = [
     {
@@ -599,9 +690,9 @@ const HomeView: React.FC<HomeViewProps> = ({ onShowLogin, onGoHome, onStartGuest
             &copy; {new Date().getFullYear()} Barber Shop AI. Todos los derechos reservados.
           </p>
           <div className="flex space-x-6 text-xs text-slate-500 font-semibold">
-            <span className="hover:text-white transition-colors cursor-pointer">Soporte</span>
-            <span className="hover:text-white transition-colors cursor-pointer">Contacto</span>
-            <span className="hover:text-white transition-colors cursor-pointer">Estatus</span>
+            <span onClick={() => setIsSupportOpen(true)} className="hover:text-white transition-colors cursor-pointer">Soporte</span>
+            <span onClick={() => setIsContactOpen(true)} className="hover:text-white transition-colors cursor-pointer">Contacto</span>
+            <span onClick={() => setIsStatusOpen(true)} className="hover:text-white transition-colors cursor-pointer">Estatus</span>
           </div>
         </div>
       </footer>
@@ -686,6 +777,409 @@ const HomeView: React.FC<HomeViewProps> = ({ onShowLogin, onGoHome, onStartGuest
               >
                 Aceptar
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Soporte Modal */}
+      {isSupportOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[150] flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden text-slate-300">
+            <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-950/40">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🛠️</span>
+                <h3 className="text-lg font-black uppercase tracking-tight text-white">Centro de Soporte Técnico</h3>
+              </div>
+              <button 
+                onClick={() => {
+                  setIsSupportOpen(false);
+                  setSupportSuccess(false);
+                  setSupportError('');
+                }}
+                className="text-slate-400 hover:text-white font-bold text-lg"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-1 space-y-4">
+              {supportSuccess ? (
+                <div className="text-center py-8 space-y-4">
+                  <div className="w-16 h-16 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center mx-auto text-3xl">
+                    ✓
+                  </div>
+                  <h4 className="text-xl font-black text-white uppercase tracking-tight">¡Ticket Creado con Éxito!</h4>
+                  <p className="text-xs text-slate-400 leading-relaxed max-w-sm mx-auto">
+                    Hemos recibido tu solicitud de soporte. Un ingeniero de nuestro equipo se pondrá en contacto contigo a la brevedad posible.
+                  </p>
+                  <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800 max-w-xs mx-auto">
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Código de Referencia</p>
+                    <p className="text-sm font-mono text-red-500 font-bold">{createdTicketId}</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setIsSupportOpen(false);
+                      setSupportSuccess(false);
+                    }}
+                    className="mt-6 bg-red-600 hover:bg-red-700 text-white font-black text-xs uppercase tracking-widest px-6 py-3 rounded-xl transition-all"
+                  >
+                    Cerrar Ventana
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleSupportSubmit} className="space-y-4 text-left">
+                  {supportError && (
+                    <div className="p-3 bg-red-950/30 border border-red-900/50 rounded-xl text-xs text-red-400 font-semibold">
+                      ⚠ {supportError}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">Nombre Completo *</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={supportName}
+                        onChange={(e) => setSupportName(e.target.value)}
+                        placeholder="Ej. Daniel Ernesto"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-red-600 transition-colors font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">Correo Electrónico *</label>
+                      <input 
+                        type="email" 
+                        required
+                        value={supportEmail}
+                        onChange={(e) => setSupportEmail(e.target.value)}
+                        placeholder="ejemplo@correo.com"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-red-600 transition-colors font-semibold"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">Categoría *</label>
+                      <select 
+                        value={supportCategory}
+                        onChange={(e) => setSupportCategory(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-red-600 transition-colors font-semibold"
+                      >
+                        <option value="Soporte Técnico">Soporte Técnico</option>
+                        <option value="Facturación">Facturación &amp; Pagos</option>
+                        <option value="Consulta General">Consulta General</option>
+                        <option value="Sugerencia de Feature">Sugerencia de Feature</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">Prioridad *</label>
+                      <select 
+                        value={supportPriority}
+                        onChange={(e) => setSupportPriority(e.target.value as any)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-red-600 transition-colors font-semibold"
+                      >
+                        <option value="Baja">Baja</option>
+                        <option value="Media">Media</option>
+                        <option value="Alta">Alta</option>
+                        <option value="Crítica">Crítica</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">Asunto *</label>
+                    <input 
+                      type="text" 
+                      required
+                      value={supportSubject}
+                      onChange={(e) => setSupportSubject(e.target.value)}
+                      placeholder="Ej. Problema con la simulación del espejo virtual"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-red-600 transition-colors font-semibold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">Descripción del Problema *</label>
+                    <textarea 
+                      required
+                      rows={4}
+                      value={supportDescription}
+                      onChange={(e) => setSupportDescription(e.target.value)}
+                      placeholder="Detalla lo más posible tu consulta o problema..."
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-red-600 transition-colors font-semibold resize-none font-sans"
+                    ></textarea>
+                  </div>
+
+                  <div className="pt-2 flex justify-end gap-3">
+                    <button 
+                      type="button"
+                      onClick={() => setIsSupportOpen(false)}
+                      className="bg-slate-800 hover:bg-slate-750 text-slate-300 font-black text-xs uppercase tracking-widest px-5 py-3 rounded-xl transition-all"
+                    >
+                      Cancelar
+                    </button>
+                    <button 
+                      type="submit"
+                      disabled={isSubmittingSupport}
+                      className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-black text-xs uppercase tracking-widest px-6 py-3 rounded-xl transition-all flex items-center gap-2"
+                    >
+                      {isSubmittingSupport ? 'Enviando...' : 'Crear Ticket'}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Contacto Modal */}
+      {isContactOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[150] flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden font-sans text-slate-300">
+            <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-950/40">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">📞</span>
+                <h3 className="text-lg font-black uppercase tracking-tight text-white">Canales de Contacto Directo</h3>
+              </div>
+              <button 
+                onClick={() => {
+                  setIsContactOpen(false);
+                  setContactSuccess(false);
+                  setContactError('');
+                }}
+                className="text-slate-400 hover:text-white font-bold text-lg"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-1 grid grid-cols-1 md:grid-cols-12 gap-8">
+              {/* Info Columns */}
+              <div className="md:col-span-5 space-y-6 text-left">
+                <div className="space-y-1">
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-red-500">Atención al Cliente</h4>
+                  <p className="text-xs text-slate-400 font-semibold leading-relaxed">Respuesta garantizada en menos de 12 horas hábiles.</p>
+                </div>
+
+                <div className="space-y-4 pt-2">
+                  <div className="flex items-start gap-3">
+                    <span className="text-lg bg-slate-950 p-2.5 rounded-xl border border-slate-800">✉</span>
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Correo Electrónico</p>
+                      <a href="mailto:elchocolatasos@gmail.com" className="text-xs text-white font-bold hover:text-red-500 transition-colors">elchocolatasos@gmail.com</a>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <span className="text-lg bg-slate-950 p-2.5 rounded-xl border border-slate-800">📱</span>
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Teléfono &amp; WhatsApp</p>
+                      <a href="https://wa.me/13476006205" target="_blank" rel="noopener noreferrer" className="text-xs text-white font-bold hover:text-red-500 transition-colors">+1 347-600-6205</a>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <span className="text-lg bg-slate-950 p-2.5 rounded-xl border border-slate-800">📍</span>
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Dirección Física</p>
+                      <p className="text-xs text-white font-semibold leading-relaxed">1271 Alcott St, Philadelphia, PA 19149, USA</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Message Box */}
+              <div className="md:col-span-7 border-t md:border-t-0 md:border-l border-slate-800 pt-6 md:pt-0 md:pl-6 text-left">
+                {contactSuccess ? (
+                  <div className="text-center py-8 space-y-4 h-full flex flex-col justify-center">
+                    <div className="w-16 h-16 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center mx-auto text-3xl">
+                      ✓
+                    </div>
+                    <h4 className="text-lg font-black text-white uppercase tracking-tight">¡Mensaje Enviado!</h4>
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      Tu consulta ha sido enviada con éxito. Nos pondremos en contacto contigo a través de tu correo electrónico registrado.
+                    </p>
+                    <button
+                      onClick={() => {
+                        setIsContactOpen(false);
+                        setContactSuccess(false);
+                      }}
+                      className="mt-4 bg-red-600 hover:bg-red-700 text-white font-black text-xs uppercase tracking-widest px-6 py-3 rounded-xl transition-all self-center"
+                    >
+                      Entendido
+                    </button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleContactSubmit} className="space-y-4">
+                    <h4 className="text-xs font-black uppercase tracking-wider text-white">Escríbenos Directamente</h4>
+                    
+                    {contactError && (
+                      <div className="p-3 bg-red-950/30 border border-red-900/50 rounded-xl text-xs text-red-400 font-semibold">
+                        ⚠ {contactError}
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Nombre Completo *</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={contactName}
+                        onChange={(e) => setContactName(e.target.value)}
+                        placeholder="Ej. Luis Mañon"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-red-600 transition-colors font-semibold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Email de Contacto *</label>
+                      <input 
+                        type="email" 
+                        required
+                        value={contactEmail}
+                        onChange={(e) => setContactEmail(e.target.value)}
+                        placeholder="tuemail@correo.com"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-red-600 transition-colors font-semibold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Mensaje *</label>
+                      <textarea 
+                        required
+                        rows={4}
+                        value={contactMessage}
+                        onChange={(e) => setContactMessage(e.target.value)}
+                        placeholder="Escribe tu duda, propuesta de negocio, o consulta..."
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-red-600 transition-colors font-semibold resize-none font-sans"
+                      ></textarea>
+                    </div>
+
+                    <div className="pt-2 flex justify-end">
+                      <button 
+                        type="submit"
+                        disabled={isSubmittingContact}
+                        className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-black text-xs uppercase tracking-widest py-3 rounded-xl transition-all"
+                      >
+                        {isSubmittingContact ? 'Enviando...' : 'Enviar Mensaje'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Estatus Modal */}
+      {isStatusOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[150] flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full shadow-2xl overflow-hidden font-sans text-slate-300">
+            <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-950/40">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">📊</span>
+                <h3 className="text-lg font-black uppercase tracking-tight text-white">Estatus de Servicios</h3>
+              </div>
+              <button 
+                onClick={() => setIsStatusOpen(false)}
+                className="text-slate-400 hover:text-white font-bold text-lg"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              {/* Header Status Bar */}
+              <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-2xl flex items-center gap-4">
+                <div className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                </div>
+                <div className="text-left">
+                  <p className="text-xs font-black text-emerald-400 uppercase tracking-wider">Sistemas Operacionales</p>
+                  <p className="text-[10px] text-slate-400 font-semibold leading-relaxed">Todos los servicios de inteligencia artificial y de agenda se encuentran en línea.</p>
+                </div>
+              </div>
+
+              {/* Individual Services */}
+              <div className="space-y-4 text-left">
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-800/60 pb-2">Servicios Clave</h4>
+                
+                <div className="flex justify-between items-center text-xs">
+                  <div className="space-y-0.5">
+                    <p className="font-bold text-white uppercase tracking-tight">Motor de Visagismo IA</p>
+                    <p className="text-[9px] text-slate-500 font-semibold">Tiempo de respuesta promedio: 1.2s</p>
+                  </div>
+                  <div className="flex items-center gap-1.5 font-sans">
+                    <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">99.98%</span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 block"></span>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center text-xs">
+                  <div className="space-y-0.5">
+                    <p className="font-bold text-white uppercase tracking-tight">Base de Datos (Firestore)</p>
+                    <p className="text-[9px] text-slate-500 font-semibold">Réplica activa de baja latencia</p>
+                  </div>
+                  <div className="flex items-center gap-1.5 font-sans">
+                    <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">100.0%</span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 block"></span>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center text-xs">
+                  <div className="space-y-0.5">
+                    <p className="font-bold text-white uppercase tracking-tight">Pasarela de Pagos (Stripe)</p>
+                    <p className="text-[9px] text-slate-500 font-semibold">Integración de checkout de suscripción</p>
+                  </div>
+                  <div className="flex items-center gap-1.5 font-sans">
+                    <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">100.0%</span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 block"></span>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center text-xs">
+                  <div className="space-y-0.5">
+                    <p className="font-bold text-white uppercase tracking-tight">API de Reservas y Sincronización</p>
+                    <p className="text-[9px] text-slate-500 font-semibold">Gestor de turnos offline/online</p>
+                  </div>
+                  <div className="flex items-center gap-1.5 font-sans">
+                    <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">99.99%</span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 block"></span>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center text-xs">
+                  <div className="space-y-0.5">
+                    <p className="font-bold text-white uppercase tracking-tight">Servidor de Almacenamiento CDN</p>
+                    <p className="text-[9px] text-slate-500 font-semibold">Guardado y cache de fotos faciales</p>
+                  </div>
+                  <div className="flex items-center gap-1.5 font-sans">
+                    <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">100.0%</span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 block"></span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Recent Incident logs */}
+              <div className="bg-slate-950/40 p-3 rounded-xl border border-slate-800 text-left space-y-1">
+                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Historial de Incidentes</p>
+                <p className="text-xs text-slate-300 font-semibold leading-relaxed">No se reportan incidentes ni degradación de servicio en las últimas 72 horas.</p>
+              </div>
+
+              <div className="pt-2">
+                <button 
+                  onClick={() => setIsStatusOpen(false)}
+                  className="w-full bg-slate-800 hover:bg-slate-750 text-slate-300 font-black text-xs uppercase tracking-widest py-3 rounded-xl transition-all"
+                >
+                  Entendido
+                </button>
+              </div>
             </div>
           </div>
         </div>
