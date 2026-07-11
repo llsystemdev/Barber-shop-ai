@@ -10,7 +10,8 @@ import {
     getAllShops,
     uploadShopImage,
     saveMirrorSession,
-    getMirrorSession
+    getMirrorSession,
+    deleteShop
 } from './services/barberShopService';
 import { onAuthStateChanged, logoutUser as localLogout, loginWithGoogle } from './services/authService';
 import { auth } from './firebase/client';
@@ -577,6 +578,31 @@ const App: React.FC = () => {
     }
   };
 
+  const handleDeleteShop = async (shopId: string) => {
+    try {
+      setIsInitializing(true);
+      const { error } = await deleteShop(shopId);
+      if (error) throw error;
+
+      alert("💈 Tu barbería ha sido eliminada permanentemente.");
+      
+      // Clear local states
+      setShops([]);
+      setActiveShopId(null);
+      setBookings([]);
+      setMessages([]);
+      
+      // Log out
+      lastHandledUserIdRef.current = null;
+      await localLogout();
+      setScreen('home');
+    } catch (err: any) {
+      alert("Error al eliminar la barbería: " + err.message);
+    } finally {
+      setIsInitializing(false);
+    }
+  };
+
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -713,7 +739,7 @@ const App: React.FC = () => {
                 />
             )}
             {activeView === 'bookingsList' && <BookingsListView bookings={bookings} onNavigate={(v) => setActiveView(v as any)} />}
-            {activeView === 'shopProfile' && <ShopProfileView shop={currentShop} onUpdateProfile={(s) => setShops([s])} />}
+            {activeView === 'shopProfile' && <ShopProfileView shop={currentShop} onUpdateProfile={(s) => setShops([s])} onDeleteShop={handleDeleteShop} />}
             {activeView === 'billing' && <BillingView shop={currentShop} onUpdatePlan={handleUpdatePlan} onUpdatePaymentMethod={handleUpdatePaymentMethod} />}
         </main>
       </div>

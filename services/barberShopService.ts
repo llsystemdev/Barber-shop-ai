@@ -10,7 +10,8 @@ import {
   updateDoc, 
   query, 
   where, 
-  onSnapshot 
+  onSnapshot,
+  deleteDoc
 } from 'firebase/firestore';
 
 // Helper function to convert base64 data URIs to Blobs for Firebase Storage uploads
@@ -252,6 +253,17 @@ export const getMirrorSession = async (userId: string): Promise<MirrorSessionDat
   } catch (error) {
     console.error('Error getting mirror session:', error);
     return null;
+  }
+};
+
+export const deleteShop = async (shopId: string): Promise<{ error: any }> => {
+  try {
+    await deleteDoc(doc(db, 'shops', shopId));
+    console.log(`[Client DB] Barber shop deleted successfully from Firestore: ${shopId}`);
+    return { error: null };
+  } catch (error: any) {
+    console.error('deleteShop failed:', error);
+    return { error };
   }
 };
 

@@ -6,15 +6,19 @@ import { uploadShopImage, updateShop } from '../services/barberShopService';
 interface ShopProfileViewProps {
   shop: BarberShop;
   onUpdateProfile: (updatedShop: BarberShop) => void;
+  onDeleteShop?: (shopId: string) => void;
 }
 
-const ShopProfileView: React.FC<ShopProfileViewProps> = ({ shop, onUpdateProfile }) => {
+const ShopProfileView: React.FC<ShopProfileViewProps> = ({ shop, onUpdateProfile, onDeleteShop }) => {
   const [activeTab, setActiveTab] = useState<'info' | 'services' | 'team_hours' | 'policies'>('info');
   const [isEditing, setIsEditing] = useState(false);
   const [editableShop, setEditableShop] = useState<BarberShop>(shop);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
+
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   // Social media handles simulation (saved in shop metadata or locally fallback)
   const [instagram, setInstagram] = useState('@barberia_ai_pro');
@@ -294,7 +298,8 @@ const ShopProfileView: React.FC<ShopProfileViewProps> = ({ shop, onUpdateProfile
           
           {/* TAB 1: Información & IA */}
           {activeTab === 'info' && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               
               {/* Historia & Datos Generales */}
               <div className="lg:col-span-2 space-y-6">
@@ -444,6 +449,66 @@ const ShopProfileView: React.FC<ShopProfileViewProps> = ({ shop, onUpdateProfile
                 </div>
               </div>
             </div>
+
+            {/* Zona de Peligro para eliminación */}
+            {onDeleteShop && (
+              <div className="bg-rose-50/50 border border-rose-100 rounded-3xl p-6 mt-8 space-y-4">
+                <div className="flex items-center space-x-3 text-rose-800">
+                  <span className="text-2xl">⚠️</span>
+                  <div>
+                    <h4 className="text-xs font-black uppercase tracking-widest text-rose-700">Zona de Peligro</h4>
+                    <p className="text-[10px] font-semibold uppercase text-rose-500">Acciones destructivas e irreversibles</p>
+                  </div>
+                </div>
+                
+                <p className="text-xs text-rose-700 leading-relaxed font-medium">
+                  Al eliminar tu barbería se borrarán permanentemente toda la configuración de IA, galería de fotos, carta de servicios y reservas asociadas. Esta acción no se puede deshacer.
+                </p>
+
+                {showConfirmDelete ? (
+                  <div className="space-y-3 p-4 bg-white border border-rose-200 rounded-2xl animate-fade-in">
+                    <p className="text-xs font-black text-slate-800 uppercase tracking-tight">
+                      Para confirmar la eliminación, escribe <span className="text-rose-600 font-mono select-all">ELIMINAR</span> a continuación:
+                    </p>
+                    <input 
+                      type="text" 
+                      value={deleteConfirmText} 
+                      onChange={(e) => setDeleteConfirmText(e.target.value)} 
+                      placeholder="Escribe ELIMINAR para proceder"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 text-xs font-bold focus:border-rose-600 focus:bg-white focus:ring-0 transition-all outline-none"
+                    />
+                    <div className="flex space-x-3">
+                      <button 
+                        onClick={() => {
+                          if (deleteConfirmText === 'ELIMINAR' && onDeleteShop) {
+                            onDeleteShop(shop.id);
+                          }
+                        }}
+                        disabled={deleteConfirmText !== 'ELIMINAR'}
+                        className={`flex-1 font-black py-3 rounded-xl transition-all uppercase text-xs tracking-widest text-center ${deleteConfirmText === 'ELIMINAR' ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-lg shadow-rose-600/20 cursor-pointer' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
+                      >
+                        Sí, eliminar permanentemente
+                      </button>
+                      <button 
+                        onClick={() => { setShowConfirmDelete(false); setDeleteConfirmText(''); }} 
+                        className="px-5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black rounded-xl transition-all uppercase text-xs tracking-widest"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button 
+                    onClick={() => setShowConfirmDelete(true)}
+                    className="bg-rose-50 hover:bg-rose-100 text-rose-700 font-black px-6 py-3 rounded-xl transition-all uppercase text-xs tracking-widest border border-rose-200"
+                  >
+                    Eliminar Barbería
+                  </button>
+                )}
+              </div>
+            )}
+
+            </>
           )}
 
           {/* TAB 2: Carta de Servicios */}
