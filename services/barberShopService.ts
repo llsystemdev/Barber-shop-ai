@@ -1,6 +1,17 @@
 import { Booking, BarberShop } from "../types";
-import { storage } from '../firebase/client';
+import { db, storage } from '../firebase/client';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { 
+  collection, 
+  getDocs, 
+  doc, 
+  getDoc, 
+  setDoc, 
+  updateDoc, 
+  query, 
+  where, 
+  onSnapshot 
+} from 'firebase/firestore';
 
 // Helper function to convert base64 data URIs to Blobs for Firebase Storage uploads
 function base64ToBlob(base64: string): Blob {
@@ -15,13 +26,50 @@ function base64ToBlob(base64: string): Blob {
   return new Blob([uInt8Array], { type: contentType });
 }
 
+const getRandomId = () => Math.random().toString(36).substring(2, 15);
+
 // --- REAL BACKEND OPERATIONS FOR BARBER SHOPS & BOOKINGS ---
 
 export const getAllShops = async (): Promise<BarberShop[]> => {
   try {
-    const response = await fetch('/api/shops');
-    if (!response.ok) throw new Error('Error al obtener barberías');
-    return await response.json();
+    const querySnapshot = await getDocs(collection(db, 'shops'));
+    let shops: BarberShop[] = [];
+    querySnapshot.forEach((doc) => {
+      shops.push(doc.data() as BarberShop);
+    });
+
+    if (shops.length === 0) {
+      console.log('[Client DB] No shops found in Firestore. Seeding default demo shop...');
+      const defaultShop: BarberShop = {
+        id: 'default_shop',
+        name: 'Barbería AI Demo',
+        aiName: 'Asistente AI',
+        welcomeMessage: '¡Hola! Bienvenido. Soy tu Asistente AI de Estilismo. ¿Qué estilo te gustaría ver hoy?',
+        aiPersona: 'Profesional, amable y experto en visagismo de cabello.',
+        description: 'Barbería de de demostración potenciada con Inteligencia Artificial.',
+        address: 'Calle del Estilo 123, Ciudad',
+        phone: '555-0199',
+        hours: { 'Lunes-Viernes': '09:00 - 18:00' },
+        gallery: [
+          'https://images.pexels.com/photos/3998429/pexels-photo-3998429.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
+          'https://images.pexels.com/photos/2061821/pexels-photo-2061821.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2'
+        ],
+        services: [{ name: 'Corte de Cabello Premium', price: '$25' }],
+        barbers: [{ name: 'Estilista Pro', specialty: 'General', imageUrl: '' }],
+        plan: 'Básico',
+        billingHistory: [],
+        paymentMethod: { type: 'Visa', last4: '4242', expiry: '12/28' }
+      };
+      
+      try {
+        await setDoc(doc(db, 'shops', 'default_shop'), defaultShop);
+        shops = [defaultShop];
+      } catch (seedErr) {
+        console.warn('[Client DB] Failed to seed default shop to Firestore:', seedErr);
+        shops = [defaultShop];
+      }
+    }
+    return shops;
   } catch (error) {
     console.error('getAllShops failed:', error);
     return [];
@@ -30,9 +78,12 @@ export const getAllShops = async (): Promise<BarberShop[]> => {
 
 export const getShopForUser = async (userId: string): Promise<BarberShop | null> => {
   try {
-    const response = await fetch(`/api/shops/user/${encodeURIComponent(userId)}`);
-    if (!response.ok) throw new Error('Error al obtener barbería del usuario');
-    return await response.json();
+    const q = query(collection(db, 'shops'), where('ownerId', '==', userId));
+    const querySnapshot = await getDocs(q);
+    if (!querySnapshot.empty) {
+      return querySnapshot.docs[0].data() as BarberShop;
+    }
+    return null;
   } catch (error) {
     console.error('getShopForUser failed:', error);
     return null;
@@ -63,15 +114,8 @@ export const createDefaultShopForUser = async (userId: string, userName: string)
       paymentMethod: { type: 'Visa', last4: '0000', expiry: '00/00' }
     };
 
-    const response = await fetch('/api/shops', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(defaultShop)
-    });
-    
-    if (!response.ok) throw new Error('Error al registrar barbería');
-    const result = await response.json();
-    return { data: result.data, error: null };
+    await setDoc(doc(db, 'shops', defaultShop.id), defaultShop);
+    return { data: defaultShop, error: null };
   } catch (error: any) {
     console.error('createDefaultShopForUser failed:', error);
     return { data: null as any, error };
@@ -80,12 +124,7 @@ export const createDefaultShopForUser = async (userId: string, userName: string)
 
 export const updateShop = async (shopId: string, updates: Partial<BarberShop>): Promise<{ error: any }> => {
   try {
-    const response = await fetch(`/api/shops/${encodeURIComponent(shopId)}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates)
-    });
-    if (!response.ok) throw new Error('Error al actualizar barbería');
+    await updateDoc(doc(db, 'shops', shopId), updates);
     return { error: null };
   } catch (error: any) {
     console.error('updateShop failed:', error);
@@ -95,44 +134,31 @@ export const updateShop = async (shopId: string, updates: Partial<BarberShop>): 
 
 export const saveBooking = async (booking: Omit<Booking, 'id'>): Promise<{ data: Booking; error: any }> => {
   try {
-    const response = await fetch('/api/bookings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(booking)
-    });
-    if (!response.ok) throw new Error('Error al guardar reserva');
-    const result = await response.json();
-    return { data: result.data, error: null };
+    const bookingId = `booking_${Date.now()}`;
+    const newBooking: Booking = {
+      ...booking,
+      id: bookingId
+    } as Booking;
+    await setDoc(doc(db, 'bookings', bookingId), newBooking);
+    return { data: newBooking, error: null };
   } catch (error: any) {
     console.error('saveBooking failed:', error);
     return { data: null as any, error };
   }
 };
 
-// Polling interval-based real-time listener for bookings
+// Real-time listener using Firebase Firestore's onSnapshot
 export const subscribeToBookings = (shopName: string, callback: (bookings: Booking[]) => void) => {
-  const fetchBookings = async () => {
-    try {
-      const response = await fetch(`/api/bookings/shop/${encodeURIComponent(shopName)}`);
-      if (response.ok) {
-        const bookings = await response.json();
-        callback(bookings);
-      }
-    } catch (error) {
-      console.error('Failed to fetch bookings for subscriber:', error);
-    }
-  };
-
-  // Initial fetch
-  fetchBookings();
-
-  // Poll every 3 seconds for new/updated bookings
-  const intervalId = setInterval(fetchBookings, 3000);
-
-  // Return unsubscribe handle
-  return () => {
-    clearInterval(intervalId);
-  };
+  const q = query(collection(db, 'bookings'));
+  const unsubscribe = onSnapshot(q, (snapshot) => {
+    const bookings = snapshot.docs
+      .map(doc => doc.data() as Booking)
+      .filter(b => b.shopName === shopName || b.shopId === shopName);
+    callback(bookings);
+  }, (error) => {
+    console.error('Failed to subscribe to bookings:', error);
+  });
+  return unsubscribe;
 };
 
 // --- IMAGE UPLOAD SERVICE ---
@@ -143,56 +169,80 @@ export const uploadBase64Image = async (base64: string, shopId: string, bucket: 
       return base64;
     }
 
-    const response = await fetch('/api/upload', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ base64, shopId, bucket })
-    });
-
-    if (!response.ok) {
-      throw new Error(`Error en la subida: ${response.statusText}`);
-    }
-
-    const result = await response.json();
-    return result.url || base64;
+    const targetFolder = bucket === 'galery' ? 'haircuts' : 'avatars';
+    const match = base64.match(/^data:([^;]+);base64,(.+)$/);
+    if (!match) return base64;
+    
+    const mimeType = match[1];
+    const fileExtension = mimeType.split('/')[1] || 'jpg';
+    const randomId = getRandomId();
+    const filePath = `${targetFolder}/${shopId}/${Date.now()}-${randomId}.${fileExtension}`;
+    
+    const blob = base64ToBlob(base64);
+    const storageRef = ref(storage, filePath);
+    console.log(`[Client Storage] Uploading base64 blob to path: ${filePath}`);
+    const snapshot = await uploadBytes(storageRef, blob, { contentType: mimeType });
+    const downloadUrl = await getDownloadURL(snapshot.ref);
+    console.log(`[Client Storage] Successfully uploaded base64. URL: ${downloadUrl}`);
+    return downloadUrl;
   } catch (error: any) {
-    console.error('[uploadBase64Image Error] Falling back to base64:', error);
+    console.warn('[Client Storage] Client direct base64 upload failed. Falling back to backend /api/upload proxy:', error.message || error);
+    try {
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ base64, shopId, bucket })
+      });
+      if (response.ok) {
+        const result = await response.json();
+        return result.url || base64;
+      }
+    } catch (fallbackError) {
+      console.error('[Client Storage Fallback] Backend upload failed too:', fallbackError);
+    }
     return base64;
   }
 };
 
 export const uploadShopImage = async (file: File, shopId: string, bucket: 'galery' | 'barbers'): Promise<string> => {
   try {
-    const base64 = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = error => reject(error);
-    });
-
-    const response = await fetch('/api/upload', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ base64, shopId, bucket })
-    });
-
-    if (!response.ok) {
-      throw new Error(`Error en la subida: ${response.statusText}`);
-    }
-
-    const result = await response.json();
-    return result.url || base64;
+    const targetFolder = bucket === 'galery' ? 'haircuts' : 'avatars';
+    const fileExtension = file.name.split('.').pop() || 'jpg';
+    const randomId = getRandomId();
+    const filePath = `${targetFolder}/${shopId}/${Date.now()}-${randomId}.${fileExtension}`;
+    
+    const storageRef = ref(storage, filePath);
+    console.log(`[Client Storage] Uploading file to path: ${filePath}`);
+    const snapshot = await uploadBytes(storageRef, file);
+    const downloadUrl = await getDownloadURL(snapshot.ref);
+    console.log(`[Client Storage] Successfully uploaded. URL: ${downloadUrl}`);
+    return downloadUrl;
   } catch (error: any) {
-    console.error('[uploadShopImage Error] Falling back to local base64:', error);
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = error => reject(error);
-    });
+    console.warn('[Client Storage] Client direct upload failed. Falling back to backend /api/upload proxy:', error.message || error);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = err => reject(err);
+      });
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ base64, shopId, bucket })
+      });
+      if (response.ok) {
+        const result = await response.json();
+        return result.url || base64;
+      }
+      return base64;
+    } catch (fallbackError) {
+      console.error('[Client Storage Fallback] Backend upload failed too:', fallbackError);
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result as string);
+      });
+    }
   }
 };

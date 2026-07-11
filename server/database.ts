@@ -2,9 +2,8 @@ import fs from 'fs/promises';
 import fsSync from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import { getApps, initializeApp, applicationDefault } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
-import { getStorage } from 'firebase-admin/storage';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getFirestore, collection, getDocs, doc, setDoc } from 'firebase/firestore';
 import { User, BarberShop, Booking } from '../types';
 
 // Load Firebase configuration
@@ -18,43 +17,26 @@ try {
   console.warn('[server/database] Failed to read firebase-applet-config.json:', err);
 }
 
-// Initialize firebase-admin
-let appAdmin: any = null;
+// Initialize firebase client app on server
+let app: any = null;
 try {
-  if (getApps().length === 0 && firebaseConfig.projectId) {
-    appAdmin = initializeApp({
-       projectId: firebaseConfig.projectId,
-       credential: applicationDefault()
-     });
-    console.log('[Firebase Admin] Initialized successfully with Application Default Credentials');
-  } else if (getApps().length > 0) {
-    appAdmin = getApps()[0];
+  if (firebaseConfig.projectId) {
+    app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+    console.log('[Firebase Client] Initialized successfully on backend');
   }
 } catch (error) {
-  console.warn('[Firebase Admin Warning] Could not initialize with Application Default Credentials, trying config fallback:', error);
-  try {
-    if (getApps().length === 0 && firebaseConfig.projectId) {
-      appAdmin = initializeApp({
-        projectId: firebaseConfig.projectId
-      });
-      console.log('[Firebase Admin] Initialized with explicit projectId');
-    }
-  } catch (err) {
-    console.error('[Firebase Admin Error] Failed to initialize:', err);
-  }
+  console.error('[Firebase Client Error] Failed to initialize:', error);
 }
 
 // Get Firestore reference
-export const firestore = getApps().length > 0
-  ? (firebaseConfig.firestoreDatabaseId
-      ? getFirestore(getApps()[0], firebaseConfig.firestoreDatabaseId)
-      : getFirestore(getApps()[0]))
+export const firestore = app
+  ? (firebaseConfig.firestoreDatabaseId 
+      ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
+      : getFirestore(app))
   : null;
 
-// Get Storage reference
-export const storageBucket = getApps().length > 0 && firebaseConfig.storageBucket
-  ? getStorage(getApps()[0]).bucket(firebaseConfig.storageBucket)
-  : null;
+// Stub for storageBucket
+export const storageBucket: any = null;
 
 const DB_FILE = path.join(process.cwd(), 'server', 'db.json');
 
@@ -123,81 +105,99 @@ export function isFirestoreReady(): boolean {
 async function syncFromFirestore(dbSchema: DatabaseSchema) {
   if (!firestore || isFirestoreDisabled) return;
   try {
-    console.log('[Firestore] Syncing data from cloud database...');
+    console.log('[Firestore Sync] Sincronizando datos desde la base de datos de Firebase...');
     
     // 1. Users
-    const usersSnap = await firestore.collection('users').get();
-    if (!usersSnap.empty) {
-      dbSchema.users = usersSnap.docs.map((doc: any) => doc.data() as any);
-      console.log(`[Firestore] Loaded ${dbSchema.users.length} users`);
-    } else if (dbSchema.users.length > 0) {
-      console.log('[Firestore] Users collection empty, seeding...');
-      for (const u of dbSchema.users) {
-        await firestore.collection('users').doc(u.id).set(u);
+    try {
+      const usersSnap = await getDocs(collection(firestore, 'users'));
+      if (!usersSnap.empty) {
+        dbSchema.users = usersSnap.docs.map(doc => doc.data() as any);
+        console.log(`[Firestore Sync] Cargados ${dbSchema.users.length} usuarios`);
+      } else if (dbSchema.users.length > 0) {
+        console.log('[Firestore Sync] Sembrando usuarios locales en la nube...');
+        for (const u of dbSchema.users) {
+          await setDoc(doc(firestore, 'users', u.id), u);
+        }
       }
+    } catch (err: any) {
+      console.warn('[Firestore Sync] No se pudo sincronizar colección "users":', err.message || err);
     }
 
     // 2. Shops
-    const shopsSnap = await firestore.collection('shops').get();
-    if (!shopsSnap.empty) {
-      dbSchema.shops = shopsSnap.docs.map((doc: any) => doc.data() as any);
-      console.log(`[Firestore] Loaded ${dbSchema.shops.length} shops`);
-    } else if (dbSchema.shops.length > 0) {
-      console.log('[Firestore] Shops collection empty, seeding...');
-      for (const s of dbSchema.shops) {
-        await firestore.collection('shops').doc(s.id).set(s);
+    try {
+      const shopsSnap = await getDocs(collection(firestore, 'shops'));
+      if (!shopsSnap.empty) {
+        dbSchema.shops = shopsSnap.docs.map(doc => doc.data() as any);
+        console.log(`[Firestore Sync] Cargadas ${dbSchema.shops.length} barberías`);
+      } else if (dbSchema.shops.length > 0) {
+        console.log('[Firestore Sync] Sembrando barberías locales en la nube...');
+        for (const s of dbSchema.shops) {
+          await setDoc(doc(firestore, 'shops', s.id), s);
+        }
       }
+    } catch (err: any) {
+      console.warn('[Firestore Sync] No se pudo sincronizar colección "shops":', err.message || err);
     }
 
     // 3. Bookings
-    const bookingsSnap = await firestore.collection('bookings').get();
-    if (!bookingsSnap.empty) {
-      dbSchema.bookings = bookingsSnap.docs.map((doc: any) => doc.data() as any);
-      console.log(`[Firestore] Loaded ${dbSchema.bookings.length} bookings`);
-    } else if (dbSchema.bookings.length > 0) {
-      console.log('[Firestore] Bookings collection empty, seeding...');
-      for (const b of dbSchema.bookings) {
-        await firestore.collection('bookings').doc(b.id).set(b);
+    try {
+      const bookingsSnap = await getDocs(collection(firestore, 'bookings'));
+      if (!bookingsSnap.empty) {
+        dbSchema.bookings = bookingsSnap.docs.map(doc => doc.data() as any);
+        console.log(`[Firestore Sync] Cargadas ${dbSchema.bookings.length} reservas`);
+      } else if (dbSchema.bookings.length > 0) {
+        console.log('[Firestore Sync] Sembrando reservas locales en la nube...');
+        for (const b of dbSchema.bookings) {
+          await setDoc(doc(firestore, 'bookings', b.id), b);
+        }
       }
+    } catch (err: any) {
+      console.warn('[Firestore Sync] No se pudo sincronizar colección "bookings":', err.message || err);
     }
 
     // 4. Security Logs
-    const secLogsSnap = await firestore.collection('securityLogs').get();
-    if (!secLogsSnap.empty) {
-      dbSchema.securityLogs = secLogsSnap.docs.map((doc: any) => doc.data() as any);
-    } else if (dbSchema.securityLogs.length > 0) {
-      for (const log of dbSchema.securityLogs) {
-        await firestore.collection('securityLogs').doc(log.id).set(log);
+    try {
+      const secLogsSnap = await getDocs(collection(firestore, 'securityLogs'));
+      if (!secLogsSnap.empty) {
+        dbSchema.securityLogs = secLogsSnap.docs.map(doc => doc.data() as any);
+      } else if (dbSchema.securityLogs.length > 0) {
+        for (const log of dbSchema.securityLogs) {
+          await setDoc(doc(firestore, 'securityLogs', log.id), log);
+        }
       }
+    } catch (err) {
+      // Ignorar fallos de logs secundarios
     }
 
     // 5. Support Tickets
-    const ticketsSnap = await firestore.collection('supportTickets').get();
-    if (!ticketsSnap.empty) {
-      dbSchema.supportTickets = ticketsSnap.docs.map((doc: any) => doc.data() as any);
-    } else if (dbSchema.supportTickets.length > 0) {
-      for (const ticket of dbSchema.supportTickets) {
-        await firestore.collection('supportTickets').doc(ticket.id).set(ticket);
+    try {
+      const ticketsSnap = await getDocs(collection(firestore, 'supportTickets'));
+      if (!ticketsSnap.empty) {
+        dbSchema.supportTickets = ticketsSnap.docs.map(doc => doc.data() as any);
+      } else if (dbSchema.supportTickets.length > 0) {
+        for (const ticket of dbSchema.supportTickets) {
+          await setDoc(doc(firestore, 'supportTickets', ticket.id), ticket);
+        }
       }
+    } catch (err) {
+      // Ignorar fallos de tickets secundarios
     }
 
     // 6. User Consents
-    const consentsSnap = await firestore.collection('userConsents').get();
-    if (!consentsSnap.empty) {
-      dbSchema.userConsents = consentsSnap.docs.map((doc: any) => doc.data() as any);
-    } else if (dbSchema.userConsents.length > 0) {
-      for (const consent of dbSchema.userConsents) {
-        await firestore.collection('userConsents').doc(consent.id).set(consent);
+    try {
+      const consentsSnap = await getDocs(collection(firestore, 'userConsents'));
+      if (!consentsSnap.empty) {
+        dbSchema.userConsents = consentsSnap.docs.map(doc => doc.data() as any);
+      } else if (dbSchema.userConsents.length > 0) {
+        for (const consent of dbSchema.userConsents) {
+          await setDoc(doc(firestore, 'userConsents', consent.id), consent);
+        }
       }
+    } catch (err) {
+      // Ignorar fallos de consentimientos secundarios
     }
   } catch (error: any) {
-    const errMsg = error?.message || String(error);
-    if (errMsg.includes('PERMISSION_DENIED') || errMsg.includes('insufficient permissions') || errMsg.includes('7')) {
-      isFirestoreDisabled = true;
-      console.warn('[Firestore Sync Status] Cloud sync database permission pending or denied. Running securely in persistent Local Mode.');
-    } else {
-      console.warn('[Firestore Sync Error] Failed to sync from cloud database, using Local Mode:', errMsg);
-    }
+    console.error('[Firestore Sync Error] Error general de sincronización:', error.message || error);
   }
 }
 
@@ -205,47 +205,41 @@ async function syncFromFirestore(dbSchema: DatabaseSchema) {
 async function syncToFirestore(dbSchema: DatabaseSchema) {
   if (!firestore || isFirestoreDisabled) return;
   try {
-    console.log('[Firestore] Saving all updates to cloud database...');
+    console.log('[Firestore Sync] Guardando actualizaciones en la nube...');
     
     // Write users
     for (const u of dbSchema.users) {
-      await firestore.collection('users').doc(u.id).set(u, { merge: true });
+      await setDoc(doc(firestore, 'users', u.id), u);
     }
 
     // Write shops
     for (const s of dbSchema.shops) {
-      await firestore.collection('shops').doc(s.id).set(s, { merge: true });
+      await setDoc(doc(firestore, 'shops', s.id), s);
     }
 
     // Write bookings
     for (const b of dbSchema.bookings) {
-      await firestore.collection('bookings').doc(b.id).set(b, { merge: true });
+      await setDoc(doc(firestore, 'bookings', b.id), b);
     }
 
     // Write security logs
     for (const log of dbSchema.securityLogs) {
-      await firestore.collection('securityLogs').doc(log.id).set(log, { merge: true });
+      await setDoc(doc(firestore, 'securityLogs', log.id), log);
     }
 
     // Write support tickets
     for (const ticket of dbSchema.supportTickets) {
-      await firestore.collection('supportTickets').doc(ticket.id).set(ticket, { merge: true });
+      await setDoc(doc(firestore, 'supportTickets', ticket.id), ticket);
     }
 
     // Write consents
     for (const consent of dbSchema.userConsents) {
-      await firestore.collection('userConsents').doc(consent.id).set(consent, { merge: true });
+      await setDoc(doc(firestore, 'userConsents', consent.id), consent);
     }
     
-    console.log('[Firestore] Cloud database update succeeded');
+    console.log('[Firestore Sync] Sincronización exitosa.');
   } catch (error: any) {
-    const errMsg = error?.message || String(error);
-    if (errMsg.includes('PERMISSION_DENIED') || errMsg.includes('insufficient permissions') || errMsg.includes('7')) {
-      isFirestoreDisabled = true;
-      console.warn('[Firestore Sync Status] Cloud sync database save skipped due to pending/denied permissions. Preserving updates in secure local storage.');
-    } else {
-      console.warn('[Firestore Sync Error] Failed to write updates to cloud database, changes saved locally:', errMsg);
-    }
+    console.warn('[Firestore Sync Error] Error al guardar cambios en la nube:', error.message || error);
   }
 }
 
@@ -278,7 +272,6 @@ export async function getDb(): Promise<DatabaseSchema> {
     parsed.supportTickets = parsed.supportTickets || [];
     parsed.userConsents = parsed.userConsents || [];
     
-    // No mock seeding in production mode.
     dbInstance = parsed;
 
     // Sync with Firestore

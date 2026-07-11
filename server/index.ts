@@ -8,6 +8,7 @@ import crypto from 'crypto';
 import https from 'https';
 import fs from 'fs/promises';
 import { getDb, saveDb, hashPassword, generateSalt, firestore, storageBucket, firebaseConfig, isFirestoreReady, disableFirestore } from './database';
+import { collection, addDoc } from 'firebase/firestore';
 import Stripe from 'stripe';
 
 // Global error handlers to prevent container crashes on unhandled exceptions (which cause 503 errors)
@@ -1050,7 +1051,7 @@ async function startServer() {
             // Durable Cloud Persistence: Save the real analysis to Firestore if active
             if (isFirestoreReady()) {
                 try {
-                    const docRef = await firestore!.collection('analyses').add({
+                    const docRef = await addDoc(collection(firestore!, 'analyses'), {
                         userId: userId || 'guest',
                         timestamp: new Date().toISOString(),
                         frontImageUrl: frontImageUrl || 'base64_upload',
