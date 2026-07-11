@@ -1,57 +1,82 @@
-import { UserConsent } from '../../server/compliance';
-import { SupportTicket } from '../../server/support';
-
-export interface AuditLog {
-  id: string;
-  time: string;
-  level: 'success' | 'info' | 'warn' | 'critical';
-  code: string;
-  message: string;
-  ip: string;
-  user?: string;
-  details?: any;
-}
-
-export interface SecurityAnomaly {
-  code: string;
-  message: string;
-  severity: 'high' | 'medium';
-}
+import { db } from '../firebase/client';
+import { 
+  collection, 
+  getDocs, 
+  doc, 
+  getDoc, 
+  setDoc, 
+  updateDoc, 
+  deleteDoc 
+} from 'firebase/firestore';
+import { UserConsent, SupportTicket, AuditLog, SecurityAnomaly } from '../types';
 
 /**
  * Enterprise Service for Security, Auditing, Support, and Legal Compliance.
- * Feeds directly from Express backend endpoints.
+ * Interacts directly with Cloud Firestore for 100% Firebase reliability.
  */
 export const enterpriseService = {
   // --- SECURITY & AUDIT LOGS ---
   async fetchAuditLogs(): Promise<AuditLog[]> {
     try {
-      const response = await fetch('/api/security/audit-logs');
-      if (!response.ok) throw new Error('Error al obtener registros de auditoría');
-      return await response.json();
+      const querySnapshot = await getDocs(collection(db, 'securityLogs'));
+      const logs: AuditLog[] = [];
+      querySnapshot.forEach((docSnap) => {
+        logs.push({ id: docSnap.id, ...docSnap.data() } as AuditLog);
+      });
+      return logs.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
     } catch (error) {
-      console.error(error);
+      console.error('[EnterpriseService] fetchAuditLogs failed:', error);
       return [];
     }
   },
 
   async fetchSecurityAnomalies(): Promise<SecurityAnomaly[]> {
     try {
-      const response = await fetch('/api/security/anomalies');
-      if (!response.ok) throw new Error('Error al detectar anomalías');
-      return await response.json();
+      const logs = await this.fetchAuditLogs();
+      const anomalies: SecurityAnomaly[] = [];
+      const loginFailuresByIP: Record<string, number> = {};
+      const recentTime = Date.now() - 10 * 60 * 1000; // 10 minutes ago
+
+      for (const log of logs) {
+        const logTime = new Date(log.time).getTime();
+        if (logTime < recentTime) continue;
+
+        if (log.code === 'AUTH_FAILURE') {
+          loginFailuresByIP[log.ip || 'unknown'] = (loginFailuresByIP[log.ip || 'unknown'] || 0) + 1;
+        }
+      }
+
+      for (const [ip, count] of Object.entries(loginFailuresByIP)) {
+        if (count >= 5) {
+          anomalies.push({
+            code: 'BRUTE_FORCE_SUSPECT',
+            message: `Múltiples intentos de login fallidos (${count}) desde IP: ${ip}`,
+            severity: 'high'
+          });
+        } else if (count >= 3) {
+          anomalies.push({
+            code: 'SUSPICIOUS_ACTIVITY',
+            message: `Intento de acceso repetido (${count}) desde IP: ${ip}`,
+            severity: 'medium'
+          });
+        }
+      }
+
+      return anomalies;
     } catch (error) {
-      console.error(error);
+      console.error('[EnterpriseService] fetchSecurityAnomalies failed:', error);
       return [];
     }
   },
 
   async clearAuditLogs(): Promise<boolean> {
     try {
-      const response = await fetch('/api/security/logs/clear', { method: 'POST' });
-      return response.ok;
+      const querySnapshot = await getDocs(collection(db, 'securityLogs'));
+      const deletePromises = querySnapshot.docs.map(docSnap => deleteDoc(doc(db, 'securityLogs', docSnap.id)));
+      await Promise.all(deletePromises);
+      return true;
     } catch (error) {
-      console.error(error);
+      console.error('[EnterpriseService] clearAuditLogs failed:', error);
       return false;
     }
   },
@@ -59,121 +84,256 @@ export const enterpriseService = {
   // --- SUPPORT CENTRE ---
   async fetchTickets(shopId?: string): Promise<SupportTicket[]> {
     try {
-      const url = shopId ? `/api/support/tickets?shopId=${shopId}` : '/api/support/tickets';
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('Error al cargar tickets de soporte');
-      return await response.json();
+      const querySnapshot = await getDocs(collection(db, 'supportTickets'));
+      const tickets: SupportTicket[] = [];
+      querySnapshot.forEach((docSnap) => {
+        tickets.push({ id: docSnap.id, ...docSnap.data() } as any);
+      });
+      const sorted = tickets.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      if (shopId) {
+        return sorted.filter(t => t.shopId === shopId);
+      }
+      return sorted;
     } catch (error) {
-      console.error(error);
+      console.error('[EnterpriseService] fetchTickets failed:', error);
       return [];
     }
   },
 
   async createSupportTicket(ticket: Omit<SupportTicket, 'id' | 'status' | 'messages' | 'createdAt'>): Promise<SupportTicket | null> {
     try {
-      const response = await fetch('/api/support/tickets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(ticket)
-      });
-      if (!response.ok) throw new Error('Error al crear ticket');
-      return await response.json();
+      const ticketId = `ticket_${Date.now()}`;
+      const newTicket: SupportTicket = {
+        ...ticket,
+        id: ticketId,
+        status: 'Abierto',
+        messages: [
+          {
+            sender: 'customer',
+            text: ticket.description,
+            time: new Date().toISOString()
+          }
+        ],
+        createdAt: new Date().toISOString()
+      };
+      await setDoc(doc(db, 'supportTickets', ticketId), newTicket);
+      return newTicket;
     } catch (error) {
-      console.error(error);
+      console.error('[EnterpriseService] createSupportTicket failed:', error);
       return null;
     }
   },
 
   async sendTicketMessage(ticketId: string, sender: 'customer' | 'admin', text: string): Promise<SupportTicket | null> {
     try {
-      const response = await fetch(`/api/support/tickets/${ticketId}/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sender, text })
-      });
-      if (!response.ok) throw new Error('Error al enviar mensaje');
-      return await response.json();
+      const ticketDocRef = doc(db, 'supportTickets', ticketId);
+      const ticketSnap = await getDoc(ticketDocRef);
+      if (!ticketSnap.exists()) throw new Error('Ticket no encontrado');
+      
+      const ticketData = ticketSnap.data() as any;
+      const updatedMessages = [
+        ...(ticketData.messages || []),
+        { sender, text, time: new Date().toISOString() }
+      ];
+      
+      const updates: any = { messages: updatedMessages };
+      if (sender === 'admin') {
+        updates.status = 'En Progreso';
+      }
+      
+      await updateDoc(ticketDocRef, updates);
+      return { ...ticketData, ...updates } as any;
     } catch (error) {
-      console.error(error);
+      console.error('[EnterpriseService] sendTicketMessage failed:', error);
       return null;
     }
   },
 
   async updateTicketStatus(ticketId: string, status: SupportTicket['status']): Promise<SupportTicket | null> {
     try {
-      const response = await fetch(`/api/support/tickets/${ticketId}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status })
-      });
-      if (!response.ok) throw new Error('Error al actualizar estado');
-      return await response.json();
+      const ticketDocRef = doc(db, 'supportTickets', ticketId);
+      await updateDoc(ticketDocRef, { status });
+      const ticketSnap = await getDoc(ticketDocRef);
+      return { id: ticketId, ...ticketSnap.data() } as any;
     } catch (error) {
-      console.error(error);
+      console.error('[EnterpriseService] updateTicketStatus failed:', error);
       return null;
     }
   },
 
   async fetchKB(): Promise<any[]> {
-    try {
-      const response = await fetch('/api/support/kb');
-      return await response.json();
-    } catch (error) {
-      console.error(error);
-      return [];
-    }
+    return [
+      {
+        id: 'kb_1',
+        category: 'Suscripción',
+        title: '¿Cómo funciona la facturación del Plan Profesional?',
+        content: 'El Plan Profesional se factura mensualmente a través de Stripe de manera automática. Incluye análisis de visagismo ilimitados de IA, integraciones con agendas externas y soporte prioritario de nuestro equipo técnico.',
+        role: 'shopOwner'
+      },
+      {
+        id: 'kb_2',
+        category: 'IA de Estilo',
+        title: '¿Qué precisión tiene el análisis de Visagismo facial?',
+        content: 'Nuestro modelo Gemini 3.5 analiza proporciones de frente, mandíbula y perfil usando visagismo anatómico para determinar si tu tipo de rostro es Ovalado, Cuadrado, Redondo o Diamante. Recomienda los 4 cortes con mayor coherencia visual.',
+        role: 'customer'
+      },
+      {
+        id: 'kb_3',
+        category: 'Seguridad',
+        title: '¿Cómo protegemos las fotos subidas por los usuarios?',
+        content: 'Las fotos se procesan exclusivamente en memoria durante el análisis de IA y no se almacenan permanentemente a menos que des consentimiento explícito en el Guardado de Estilos. Cumplimos estrictamente con GDPR.',
+        role: 'customer'
+      },
+      {
+        id: 'kb_4',
+        category: 'Integración',
+        title: '¿Cómo configuro la IA para que coincida con mi marca de barbería?',
+        content: 'Desde el panel de configuración de tu Barbería, puedes definir el Nombre del Asistente AI y su personalidad. Esto influirá en el tono de voz de chat que perciben tus clientes.',
+        role: 'shopOwner'
+      }
+    ];
   },
 
   // --- COMPLIANCE & GDPR ---
   async recordUserConsent(consent: Omit<UserConsent, 'id' | 'timestamp' | 'documentVersion' | 'ip'>): Promise<boolean> {
     try {
-      const response = await fetch('/api/compliance/consent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(consent)
-      });
-      return response.ok;
+      const consentId = `consent_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      const newConsent = {
+        ...consent,
+        id: consentId,
+        timestamp: new Date().toISOString(),
+        documentVersion: 'v1.2',
+        ip: 'client-ip'
+      };
+      await setDoc(doc(db, 'userConsents', consentId), newConsent);
+      return true;
     } catch (error) {
-      console.error(error);
+      console.error('[EnterpriseService] recordUserConsent failed:', error);
       return false;
     }
   },
 
   async fetchUserConsents(email: string): Promise<UserConsent[]> {
     try {
-      const response = await fetch(`/api/compliance/consent/${encodeURIComponent(email)}`);
-      return await response.json();
+      const querySnapshot = await getDocs(collection(db, 'userConsents'));
+      const consents: UserConsent[] = [];
+      querySnapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data.email?.toLowerCase() === email.toLowerCase()) {
+          consents.push({ id: docSnap.id, ...data } as any);
+        }
+      });
+      return consents;
     } catch (error) {
-      console.error(error);
+      console.error('[EnterpriseService] fetchUserConsents failed:', error);
       return [];
     }
   },
 
   async exportGDPRData(email: string): Promise<any | null> {
     try {
-      const response = await fetch('/api/compliance/export', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
+      const lowerEmail = email.toLowerCase();
+      
+      const usersSnap = await getDocs(collection(db, 'users'));
+      let user: any = null;
+      usersSnap.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data.email?.toLowerCase() === lowerEmail) {
+          user = { id: docSnap.id, ...data };
+        }
       });
-      if (!response.ok) throw new Error('Error al exportar datos de usuario');
-      return await response.json();
+
+      if (!user) {
+        throw new Error('Usuario no encontrado');
+      }
+
+      const bookingsSnap = await getDocs(collection(db, 'bookings'));
+      const bookings: any[] = [];
+      bookingsSnap.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data.userId === user.id) {
+          bookings.push({ id: docSnap.id, ...data });
+        }
+      });
+
+      const tickets = await this.fetchTickets();
+      const userTickets = tickets.filter(t => t.email.toLowerCase() === lowerEmail);
+      const consents = await this.fetchUserConsents(email);
+
+      return {
+        metadata: {
+          exportedAt: new Date().toISOString(),
+          platform: 'Barber Shop AI',
+          purpose: 'GDPR Right to Data Portability Article 20'
+        },
+        userProfile: user,
+        bookings,
+        supportTickets: userTickets,
+        consents
+      };
     } catch (error) {
-      console.error(error);
+      console.error('[EnterpriseService] exportGDPRData failed:', error);
       return null;
     }
   },
 
   async deleteGDPRAccount(email: string): Promise<boolean> {
     try {
-      const response = await fetch('/api/compliance/forget', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
+      const lowerEmail = email.toLowerCase();
+      
+      const usersSnap = await getDocs(collection(db, 'users'));
+      let userDocId: string | null = null;
+      let userId: string | null = null;
+      usersSnap.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data.email?.toLowerCase() === lowerEmail) {
+          userDocId = docSnap.id;
+          userId = data.id || docSnap.id;
+        }
       });
-      return response.ok;
+
+      if (!userDocId) {
+        throw new Error('Usuario no encontrado');
+      }
+
+      // Erase bookings
+      const bookingsSnap = await getDocs(collection(db, 'bookings'));
+      const deleteBookingPromises: Promise<any>[] = [];
+      bookingsSnap.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data.userId === userId) {
+          deleteBookingPromises.push(deleteDoc(doc(db, 'bookings', docSnap.id)));
+        }
+      });
+      await Promise.all(deleteBookingPromises);
+
+      // Erase tickets
+      const ticketsSnap = await getDocs(collection(db, 'supportTickets'));
+      const deleteTicketPromises: Promise<any>[] = [];
+      ticketsSnap.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data.email?.toLowerCase() === lowerEmail) {
+          deleteTicketPromises.push(deleteDoc(doc(db, 'supportTickets', docSnap.id)));
+        }
+      });
+      await Promise.all(deleteTicketPromises);
+
+      // Erase consents
+      const consentsSnap = await getDocs(collection(db, 'userConsents'));
+      const deleteConsentPromises: Promise<any>[] = [];
+      consentsSnap.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data.email?.toLowerCase() === lowerEmail) {
+          deleteConsentPromises.push(deleteDoc(doc(db, 'userConsents', docSnap.id)));
+        }
+      });
+      await Promise.all(deleteConsentPromises);
+
+      // Erase user profile
+      await deleteDoc(doc(db, 'users', userDocId!));
+      return true;
     } catch (error) {
-      console.error(error);
+      console.error('[EnterpriseService] deleteGDPRAccount failed:', error);
       return false;
     }
   }

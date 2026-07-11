@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User as AppUser } from '../types';
 import { 
   auth, 
+  db,
   googleProvider, 
   signInWithPopup, 
   signInWithEmailAndPassword, 
@@ -10,6 +11,7 @@ import {
   sendPasswordResetEmail 
 } from '../firebase/client';
 import { onAuthStateChanged as firebaseOnAuthStateChanged, sendEmailVerification } from 'firebase/auth';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 
 // Type definitions for our Auth Context
 export interface AuthContextType {
@@ -48,13 +50,6 @@ export const loginWithEmail = async (email: string, password: string) => {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const firebaseUser = userCredential.user;
     
-    const isDev = true; // Bypassed in dev / sandbox environments for frictionless testing
-    if (!firebaseUser.emailVerified && !isDev) {
-      await signOut(auth);
-      setActiveUser(null);
-      return { data: null, error: new Error("Debes verificar tu correo electrónico antes de acceder a la plataforma.") };
-    }
-    
     // Check if there is an explicit role selected in UI or fallback to typical roles
     const role = localStorage.getItem('userRole') || (email.toLowerCase().includes('admin') ? 'platformAdmin' : 'shopOwner');
     
@@ -66,12 +61,12 @@ export const loginWithEmail = async (email: string, password: string) => {
       avatarUrl: firebaseUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${firebaseUser.uid}`
     };
 
-    // Synchronize the authenticated user profile with Firestore and local backend DB
-    await fetch('/api/auth/sync-firebase-user', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user: appUser })
-    });
+    // Synchronize the authenticated user profile with Firestore directly
+    try {
+      await setDoc(doc(db, 'users', appUser.id), appUser, { merge: true });
+    } catch (fsErr) {
+      console.warn('[Firebase Auth Sync] Failed to sync user to Firestore:', fsErr);
+    }
 
     setActiveUser(appUser);
     return { data: { user: appUser }, error: null };
@@ -83,99 +78,44 @@ export const loginWithEmail = async (email: string, password: string) => {
 
 export const loginWithGoogle = async (): Promise<{ data: any; error: any }> => {
   const role = localStorage.getItem('userRole') || 'shopOwner';
-  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-
-  if (isLocalhost) {
-    try {
-      const userCredential = await signInWithPopup(auth, googleProvider);
-      const firebaseUser = userCredential.user;
-      
-      const appUser: AppUser = {
-        id: firebaseUser.uid,
-        name: firebaseUser.displayName || 'Usuario Google',
-        email: firebaseUser.email || '',
-        role: role as any,
-        avatarUrl: firebaseUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${firebaseUser.uid}`
-      };
-
-      // Synchronize the authenticated user profile with Firestore and local backend DB
-      await fetch('/api/auth/sync-firebase-user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user: appUser })
-      });
-
-      setActiveUser(appUser);
-      return { data: { user: appUser }, error: null };
-    } catch (err: any) {
-      console.warn('[loginWithGoogle] Standard Firebase popup failed on localhost, trying server-side Google OAuth fallback:', err);
-    }
-  }
-
-  // Fallback / Production Google OAuth flow:
-  // 1. Open a blank popup synchronously to guarantee it is NOT blocked by browser pop-up blockers!
-  const width = 500;
-  const height = 650;
-  const left = window.screenX + (window.outerWidth - width) / 2;
-  const top = window.screenY + (window.outerHeight - height) / 2;
-  
-  const popup = window.open('about:blank', 'GoogleAuth', `width=${width},height=${height},left=${left},top=${top}`);
-  if (!popup) {
-    return { data: null, error: new Error('El bloqueador de ventanas emergentes impidió abrir el inicio de sesión con Google. Por favor, permítelo en tu navegador y vuelve a intentarlo.') };
-  }
-
   try {
-    const redirectUri = `${window.location.origin}/api/auth/google/callback`;
-    const response = await fetch(`/api/auth/google/url?redirect_uri=${encodeURIComponent(redirectUri)}&role=${encodeURIComponent(role)}`);
-    if (!response.ok) {
-      popup.close();
-      throw new Error('No se pudo obtener la URL de inicio de sesión de Google desde el servidor.');
-    }
-    const { url } = await response.json();
+    const userCredential = await signInWithPopup(auth, googleProvider);
+    const firebaseUser = userCredential.user;
     
-    // 2. Set the pre-opened popup location to the Google OAuth authorization URL
-    popup.location.href = url;
-
-    return new Promise((resolve) => {
-      const handler = async (event: MessageEvent) => {
-        // Validate origin is from the same site
-        if (event.origin !== window.location.origin) return;
-
-        if (event.data && event.data.type === 'GOOGLE_AUTH_SUCCESS') {
-          window.removeEventListener('message', handler);
-          clearInterval(checkClosed);
-          const appUser = event.data.user;
-          setActiveUser(appUser);
-          resolve({ data: { user: appUser }, error: null });
+    // Fetch existing user to keep their role if they already exist
+    let finalRole = role;
+    try {
+      const existingUserSnap = await getDoc(doc(db, 'users', firebaseUser.uid));
+      if (existingUserSnap.exists()) {
+        const data = existingUserSnap.data();
+        if (data.role) {
+          finalRole = data.role;
         }
-      };
-      
-      window.addEventListener('message', handler);
-      
-      const checkClosed = setInterval(() => {
-        // Check if localStorage was already updated (double-safety fallback if postMessage was blocked)
-        const saved = localStorage.getItem('mock_user_session');
-        if (saved) {
-          try {
-            const appUser = JSON.parse(saved);
-            clearInterval(checkClosed);
-            window.removeEventListener('message', handler);
-            resolve({ data: { user: appUser }, error: null });
-            return;
-          } catch (e) {}
-        }
+      }
+    } catch (err) {
+      console.warn('[Firebase Auth] Failed to check existing user role:', err);
+    }
 
-        if (!popup || popup.closed) {
-          clearInterval(checkClosed);
-          window.removeEventListener('message', handler);
-          resolve({ data: null, error: new Error('La ventana de inicio de sesión fue cerrada') });
-        }
-      }, 1000);
-    });
-  } catch (fallbackErr: any) {
-    if (popup) popup.close();
-    console.error('[loginWithGoogle Fallback Error]', fallbackErr);
-    return { data: null, error: fallbackErr };
+    const appUser: AppUser = {
+      id: firebaseUser.uid,
+      name: firebaseUser.displayName || 'Usuario Google',
+      email: firebaseUser.email || '',
+      role: finalRole as any,
+      avatarUrl: firebaseUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${firebaseUser.uid}`
+    };
+
+    // Synchronize the authenticated user profile with Firestore directly
+    try {
+      await setDoc(doc(db, 'users', appUser.id), appUser, { merge: true });
+    } catch (fsErr) {
+      console.warn('[Firebase Auth Sync] Failed to sync user to Firestore:', fsErr);
+    }
+
+    setActiveUser(appUser);
+    return { data: { user: appUser }, error: null };
+  } catch (err: any) {
+    console.error('[loginWithGoogle Error]', err);
+    return { data: null, error: err };
   }
 };
 
@@ -197,14 +137,13 @@ export const registerWithEmail = async (email: string, password: string, name: s
       avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${firebaseUser.uid}`
     };
 
-    // Synchronize the authenticated user profile with Firestore and local backend DB
-    await fetch('/api/auth/sync-firebase-user', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user: appUser })
-    });
+    // Synchronize the authenticated user profile with Firestore directly
+    try {
+      await setDoc(doc(db, 'users', appUser.id), appUser, { merge: true });
+    } catch (fsErr) {
+      console.warn('[Firebase Auth Sync] Failed to sync user to Firestore:', fsErr);
+    }
 
-    // Note: We do NOT call setActiveUser(appUser) here so they aren't logged in automatically
     return { data: { user: appUser, firebaseUser }, error: null };
   } catch (err: any) {
     console.error('[registerWithEmail Error]', err);
@@ -253,50 +192,40 @@ export const onAuthStateChanged = (arg1: any, arg2?: any) => {
   
   return firebaseOnAuthStateChanged(auth, async (firebaseUser) => {
     if (firebaseUser) {
-      const isGoogle = firebaseUser.providerData.some(p => p.providerId === 'google.com');
-      
-      const isDev = true; // Bypassed in dev / sandbox environments
-      if (!firebaseUser.emailVerified && !isGoogle && !isDev) {
-        localStorage.removeItem('mock_user_session');
-        callback(null);
-        return;
-      }
-
       const savedSession = localStorage.getItem('mock_user_session');
       let appUser = savedSession ? JSON.parse(savedSession) : null;
       
       if (!appUser || appUser.id !== firebaseUser.uid) {
-        const role = localStorage.getItem('userRole') || (firebaseUser.email?.toLowerCase().includes('admin') ? 'platformAdmin' : 'shopOwner');
+        // Fetch profile from Firestore to preserve user details and role
+        let role = localStorage.getItem('userRole') || (firebaseUser.email?.toLowerCase().includes('admin') ? 'platformAdmin' : 'shopOwner');
+        let name = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Usuario';
+        let avatarUrl = firebaseUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${firebaseUser.uid}`;
+        
+        try {
+          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            if (data.role) role = data.role;
+            if (data.name) name = data.name;
+            if (data.avatarUrl) avatarUrl = data.avatarUrl;
+          }
+        } catch (err) {
+          console.warn('[onAuthStateChanged] Failed to get user doc:', err);
+        }
+
         appUser = {
           id: firebaseUser.uid,
-          name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Usuario',
+          name,
           email: firebaseUser.email || '',
           role: role as any,
-          avatarUrl: firebaseUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${firebaseUser.uid}`
+          avatarUrl
         };
         setActiveUser(appUser);
       }
       callback(appUser);
     } else {
-      // Only clear the session if the current saved user is NOT a backend Google-authenticated user (whose ID starts with 'google-')
-      const currentSaved = localStorage.getItem('mock_user_session');
-      if (currentSaved) {
-        try {
-          const parsed = JSON.parse(currentSaved);
-          if (parsed && parsed.id && !parsed.id.startsWith('google-')) {
-            setActiveUser(null);
-            callback(null);
-          } else if (parsed) {
-            // Keep the google- session active!
-            callback(parsed);
-          }
-        } catch (e) {
-          setActiveUser(null);
-          callback(null);
-        }
-      } else {
-        callback(null);
-      }
+      setActiveUser(null);
+      callback(null);
     }
   });
 };

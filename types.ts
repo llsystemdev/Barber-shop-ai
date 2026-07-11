@@ -128,3 +128,46 @@ export interface PlatformDashboardData {
 
 // End of Active Types
 
+export interface UserConsent {
+  id: string;
+  userId: string;
+  email: string;
+  consentType: 'AI_FACIAL_ANALYSIS' | 'PHOTO_STORAGE' | 'MARKETING_AGREEMENT' | 'COOKIE_POLICY';
+  accepted: boolean;
+  timestamp: string;
+  documentVersion: string;
+  ip: string;
+}
+
+export interface SupportTicket {
+  id: string;
+  shopId?: string;
+  customerName: string;
+  email: string;
+  category: string;
+  priority: 'Baja' | 'Media' | 'Alta' | 'Crítica';
+  subject: string;
+  description: string;
+  status: 'Abierto' | 'En Progreso' | 'Resuelto' | 'Cerrado';
+  messages: Array<{ sender: 'customer' | 'admin'; text: string; time: string }>;
+  createdAt: string;
+}
+
+export interface AuditLog {
+  id: string;
+  time: string;
+  level: 'success' | 'info' | 'warn' | 'critical';
+  code: string;
+  message: string;
+  ip: string;
+  user?: string;
+  details?: any;
+}
+
+export interface SecurityAnomaly {
+  code: string;
+  message: string;
+  severity: 'high' | 'medium';
+}
+
+

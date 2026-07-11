@@ -186,20 +186,7 @@ export const uploadBase64Image = async (base64: string, shopId: string, bucket: 
     console.log(`[Client Storage] Successfully uploaded base64. URL: ${downloadUrl}`);
     return downloadUrl;
   } catch (error: any) {
-    console.warn('[Client Storage] Client direct base64 upload failed. Falling back to backend /api/upload proxy:', error.message || error);
-    try {
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ base64, shopId, bucket })
-      });
-      if (response.ok) {
-        const result = await response.json();
-        return result.url || base64;
-      }
-    } catch (fallbackError) {
-      console.error('[Client Storage Fallback] Backend upload failed too:', fallbackError);
-    }
+    console.error('[Client Storage Error] Client direct base64 upload failed:', error);
     return base64;
   }
 };
@@ -218,31 +205,11 @@ export const uploadShopImage = async (file: File, shopId: string, bucket: 'galer
     console.log(`[Client Storage] Successfully uploaded. URL: ${downloadUrl}`);
     return downloadUrl;
   } catch (error: any) {
-    console.warn('[Client Storage] Client direct upload failed. Falling back to backend /api/upload proxy:', error.message || error);
-    try {
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = err => reject(err);
-      });
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ base64, shopId, bucket })
-      });
-      if (response.ok) {
-        const result = await response.json();
-        return result.url || base64;
-      }
-      return base64;
-    } catch (fallbackError) {
-      console.error('[Client Storage Fallback] Backend upload failed too:', fallbackError);
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result as string);
-      });
-    }
+    console.error('[Client Storage Error] Client direct upload failed. Using local preview data URI:', error);
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+    });
   }
 };
