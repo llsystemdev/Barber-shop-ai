@@ -6,6 +6,9 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, collection, getDocs, doc, setDoc } from 'firebase/firestore';
 import { User, BarberShop, Booking } from '../types';
 
+import { getApps as getAdminApps, initializeApp as initializeAdminApp } from 'firebase-admin/app';
+import { getStorage as getAdminStorage } from 'firebase-admin/storage';
+
 // Load Firebase configuration
 export let firebaseConfig: any = {};
 try {
@@ -15,6 +18,29 @@ try {
   }
 } catch (err) {
   console.warn('[server/database] Failed to read firebase-applet-config.json:', err);
+}
+
+// Initialize firebase admin app on server for Storage
+let adminApp: any = null;
+export let storageBucket: any = null;
+
+try {
+  if (firebaseConfig.projectId) {
+    const adminApps = getAdminApps();
+    adminApp = adminApps.length === 0
+      ? initializeAdminApp({
+          projectId: firebaseConfig.projectId,
+          storageBucket: firebaseConfig.storageBucket || `${firebaseConfig.projectId}.firebasestorage.app`
+        })
+      : adminApps[0];
+    
+    if (adminApp) {
+      storageBucket = getAdminStorage(adminApp).bucket();
+      console.log('[Firebase Admin] Storage bucket initialized successfully on backend:', firebaseConfig.storageBucket || `${firebaseConfig.projectId}.firebasestorage.app`);
+    }
+  }
+} catch (adminError) {
+  console.error('[Firebase Admin Error] Failed to initialize admin app or storage bucket:', adminError);
 }
 
 // Initialize firebase client app on server
@@ -34,9 +60,6 @@ export const firestore = app
       ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
       : getFirestore(app))
   : null;
-
-// Stub for storageBucket
-export const storageBucket: any = null;
 
 const DB_FILE = path.join(process.cwd(), 'server', 'db.json');
 
