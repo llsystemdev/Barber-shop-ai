@@ -704,7 +704,10 @@ const App: React.FC = () => {
         }}
         onResetChat={() => setMessages([])}
         activeView={activeView as any}
-        onNavigate={(v) => setActiveView(v as any)}
+        onNavigate={(v) => {
+            setActiveView(v as any);
+            setIsSidebarOpen(false);
+        }}
         isOpen={isSidebarOpen}
         setIsOpen={setIsSidebarOpen}
         onLogout={async () => { lastHandledUserIdRef.current = null; await localLogout(); setScreen('home'); }}
