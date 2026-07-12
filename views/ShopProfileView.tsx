@@ -222,6 +222,41 @@ const ShopProfileView: React.FC<ShopProfileViewProps> = ({ shop, onUpdateProfile
     }
   };
 
+  const tabs = [
+    { id: 'info', label: 'Información & IA', icon: '💈' },
+    { id: 'services', label: 'Carta de Servicios', icon: '💰' },
+    { id: 'team_hours', label: 'Horarios & Equipo', icon: '📅' },
+    { id: 'policies', label: 'Políticas del Salón', icon: '📜' }
+  ] as const;
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const activeIndex = tabs.findIndex(t => t.id === activeTab);
+    let newIndex = activeIndex;
+
+    if (e.key === 'ArrowRight') {
+      newIndex = (activeIndex + 1) % tabs.length;
+    } else if (e.key === 'ArrowLeft') {
+      newIndex = (activeIndex - 1 + tabs.length) % tabs.length;
+    } else if (e.key === 'Home') {
+      newIndex = 0;
+    } else if (e.key === 'End') {
+      newIndex = tabs.length - 1;
+    } else {
+      return;
+    }
+
+    e.preventDefault();
+    const nextTabId = tabs[newIndex].id;
+    setActiveTab(nextTabId);
+    
+    setTimeout(() => {
+      const element = document.getElementById(`tab-${nextTabId}`);
+      if (element) {
+        element.focus();
+      }
+    }, 0);
+  };
+
   return (
     <div className="w-full h-full bg-slate-50 overflow-y-auto p-4 sm:p-6 lg:p-10 relative">
       {isUploading && (
@@ -302,19 +337,28 @@ const ShopProfileView: React.FC<ShopProfileViewProps> = ({ shop, onUpdateProfile
         </header>
 
         {/* Tabs de Navegación de Perfil */}
-        <div className="flex border-b border-slate-200/80 overflow-x-auto pb-px scrollbar-none -mx-4 px-4 sm:-mx-6 sm:px-6 md:mx-0 md:px-0 scroll-smooth snap-x">
-          {[
-            { id: 'info', label: 'Información & IA', icon: '💈' },
-            { id: 'services', label: 'Carta de Servicios', icon: '💰' },
-            { id: 'team_hours', label: 'Horarios & Equipo', icon: '📅' },
-            { id: 'policies', label: 'Políticas del Salón', icon: '📜' }
-          ].map(tab => (
+        <div 
+          role="tablist"
+          aria-label="Secciones de perfil de barbería"
+          onKeyDown={handleKeyDown}
+          className="flex border-b border-slate-200/80 overflow-x-auto pb-px scrollbar-none -mx-4 px-4 sm:-mx-6 sm:px-6 md:mx-0 md:px-0 scroll-smooth snap-x snap-mandatory touch-pan-x gap-1"
+        >
+          {tabs.map(tab => (
             <button
+              id={`tab-${tab.id}`}
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              aria-controls={`panel-${tab.id}`}
+              tabIndex={activeTab === tab.id ? 0 : -1}
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center space-x-2 px-5 py-3 border-b-2 font-black text-xs uppercase tracking-widest transition-all flex-shrink-0 whitespace-nowrap snap-center ${activeTab === tab.id ? 'border-red-600 text-red-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+              className={`flex items-center space-x-2 px-5 py-3 border-b-2 font-black text-xs uppercase tracking-widest transition-all duration-300 flex-shrink-0 whitespace-nowrap snap-center min-h-[44px] cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2 focus-visible:rounded-lg ${
+                activeTab === tab.id 
+                  ? 'border-red-600 text-red-600 scale-100' 
+                  : 'border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-300'
+              }`}
             >
-              <span>{tab.icon}</span>
+              <span className="text-sm">{tab.icon}</span>
               <span>{tab.label}</span>
             </button>
           ))}
@@ -334,7 +378,12 @@ const ShopProfileView: React.FC<ShopProfileViewProps> = ({ shop, onUpdateProfile
           
           {/* TAB 1: Información & IA */}
           {activeTab === 'info' && (
-            <>
+            <div
+              id="panel-info"
+              role="tabpanel"
+              aria-labelledby="tab-info"
+              className="outline-none"
+            >
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               
               {/* Historia & Datos Generales */}
@@ -544,12 +593,17 @@ const ShopProfileView: React.FC<ShopProfileViewProps> = ({ shop, onUpdateProfile
               </div>
             )}
 
-            </>
+            </div>
           )}
 
           {/* TAB 2: Carta de Servicios */}
           {activeTab === 'services' && (
-            <div className="bg-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl border border-slate-100 shadow-sm space-y-6">
+            <div 
+              id="panel-services"
+              role="tabpanel"
+              aria-labelledby="tab-services"
+              className="bg-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl border border-slate-100 shadow-sm space-y-6 outline-none"
+            >
               <div className="flex justify-between items-center border-b border-slate-100 pb-4">
                 <div>
                   <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Servicios Premium</h3>
@@ -617,7 +671,12 @@ const ShopProfileView: React.FC<ShopProfileViewProps> = ({ shop, onUpdateProfile
 
           {/* TAB 3: Horarios & Equipo */}
           {activeTab === 'team_hours' && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div 
+              id="panel-team_hours"
+              role="tabpanel"
+              aria-labelledby="tab-team_hours"
+              className="grid grid-cols-1 md:grid-cols-3 gap-8 outline-none"
+            >
               
               {/* Equipo de Expertos */}
               <div className="md:col-span-2 bg-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl border border-slate-100 shadow-sm space-y-6">
@@ -776,7 +835,12 @@ const ShopProfileView: React.FC<ShopProfileViewProps> = ({ shop, onUpdateProfile
 
           {/* TAB 4: Políticas de Reserva */}
           {activeTab === 'policies' && (
-            <div className="bg-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl border border-slate-100 shadow-sm space-y-6 max-w-3xl">
+            <div 
+              id="panel-policies"
+              role="tabpanel"
+              aria-labelledby="tab-policies"
+              className="bg-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl border border-slate-100 shadow-sm space-y-6 max-w-3xl outline-none"
+            >
               <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest border-b border-slate-50 pb-3">Políticas de Atención al Cliente</h3>
               
               <div className="space-y-4">
