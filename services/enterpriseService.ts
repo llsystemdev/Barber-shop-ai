@@ -1,4 +1,4 @@
-import { db } from '../firebase/client';
+import { db, auth } from '../firebase/client';
 import { 
   collection, 
   getDocs, 
@@ -9,6 +9,53 @@ import {
   deleteDoc 
 } from 'firebase/firestore';
 import { UserConsent, SupportTicket, AuditLog, SecurityAnomaly } from '../types';
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData?.map(provider => ({
+        providerId: provider.providerId,
+        email: provider.email,
+      })) || []
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
 
 /**
  * Enterprise Service for Security, Auditing, Support, and Legal Compliance.
@@ -25,7 +72,7 @@ export const enterpriseService = {
       });
       return logs.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
     } catch (error) {
-      console.error('[EnterpriseService] fetchAuditLogs failed:', error);
+      handleFirestoreError(error, OperationType.LIST, 'securityLogs');
       return [];
     }
   },
@@ -76,7 +123,7 @@ export const enterpriseService = {
       await Promise.all(deletePromises);
       return true;
     } catch (error) {
-      console.error('[EnterpriseService] clearAuditLogs failed:', error);
+      handleFirestoreError(error, OperationType.DELETE, 'securityLogs');
       return false;
     }
   },
@@ -95,14 +142,14 @@ export const enterpriseService = {
       }
       return sorted;
     } catch (error) {
-      console.error('[EnterpriseService] fetchTickets failed:', error);
+      handleFirestoreError(error, OperationType.LIST, 'supportTickets');
       return [];
     }
   },
 
   async createSupportTicket(ticket: Omit<SupportTicket, 'id' | 'status' | 'messages' | 'createdAt'>): Promise<SupportTicket | null> {
+    const ticketId = `ticket_${Date.now()}`;
     try {
-      const ticketId = `ticket_${Date.now()}`;
       const newTicket: SupportTicket = {
         ...ticket,
         id: ticketId,
@@ -119,7 +166,7 @@ export const enterpriseService = {
       await setDoc(doc(db, 'supportTickets', ticketId), newTicket);
       return newTicket;
     } catch (error) {
-      console.error('[EnterpriseService] createSupportTicket failed:', error);
+      handleFirestoreError(error, OperationType.CREATE, `supportTickets/${ticketId}`);
       return null;
     }
   },
@@ -144,7 +191,7 @@ export const enterpriseService = {
       await updateDoc(ticketDocRef, updates);
       return { ...ticketData, ...updates } as any;
     } catch (error) {
-      console.error('[EnterpriseService] sendTicketMessage failed:', error);
+      handleFirestoreError(error, OperationType.UPDATE, `supportTickets/${ticketId}`);
       return null;
     }
   },
@@ -156,7 +203,7 @@ export const enterpriseService = {
       const ticketSnap = await getDoc(ticketDocRef);
       return { id: ticketId, ...ticketSnap.data() } as any;
     } catch (error) {
-      console.error('[EnterpriseService] updateTicketStatus failed:', error);
+      handleFirestoreError(error, OperationType.UPDATE, `supportTickets/${ticketId}`);
       return null;
     }
   },
@@ -196,8 +243,8 @@ export const enterpriseService = {
 
   // --- COMPLIANCE & GDPR ---
   async recordUserConsent(consent: Omit<UserConsent, 'id' | 'timestamp' | 'documentVersion' | 'ip'>): Promise<boolean> {
+    const consentId = `consent_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     try {
-      const consentId = `consent_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
       const newConsent = {
         ...consent,
         id: consentId,
@@ -208,7 +255,7 @@ export const enterpriseService = {
       await setDoc(doc(db, 'userConsents', consentId), newConsent);
       return true;
     } catch (error) {
-      console.error('[EnterpriseService] recordUserConsent failed:', error);
+      handleFirestoreError(error, OperationType.WRITE, `userConsents/${consentId}`);
       return false;
     }
   },
@@ -225,7 +272,7 @@ export const enterpriseService = {
       });
       return consents;
     } catch (error) {
-      console.error('[EnterpriseService] fetchUserConsents failed:', error);
+      handleFirestoreError(error, OperationType.LIST, 'userConsents');
       return [];
     }
   },
@@ -272,7 +319,7 @@ export const enterpriseService = {
         consents
       };
     } catch (error) {
-      console.error('[EnterpriseService] exportGDPRData failed:', error);
+      handleFirestoreError(error, OperationType.LIST, 'multiple_gdpr_collections');
       return null;
     }
   },
@@ -333,7 +380,7 @@ export const enterpriseService = {
       await deleteDoc(doc(db, 'users', userDocId!));
       return true;
     } catch (error) {
-      console.error('[EnterpriseService] deleteGDPRAccount failed:', error);
+      handleFirestoreError(error, OperationType.DELETE, 'multiple_gdpr_collections');
       return false;
     }
   }

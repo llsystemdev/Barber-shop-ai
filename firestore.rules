@@ -123,7 +123,9 @@ service cloud.firestore {
     
     // Colección de Consentimientos de Usuario (GDPR / Privacidad)
     match /userConsents/{consentId} {
-      allow create: if isSignedIn();
+      // Se permite la creación para cualquier usuario (incluidos los invitados o visitantes anónimos)
+      // para que puedan registrar su aceptación de las políticas GDPR y cookies antes o después de autenticarse.
+      allow create: if true;
       allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isPlatformAdmin());
       allow update, delete: if false;
     }
