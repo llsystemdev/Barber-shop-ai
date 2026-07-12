@@ -3,6 +3,8 @@ import { BarberShop, Service, Barber } from '../types';
 import { EditIcon } from '../assets/icons';
 import { uploadShopImage, updateShop } from '../services/barberShopService';
 
+const DAYS_OF_WEEK = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+
 interface ShopProfileViewProps {
   shop: BarberShop;
   onUpdateProfile: (updatedShop: BarberShop) => void;
@@ -54,6 +56,40 @@ const ShopProfileView: React.FC<ShopProfileViewProps> = ({ shop, onUpdateProfile
         [day]: val
       }
     }));
+  };
+
+  const getDayHours = (day: string) => {
+    if (editableShop.hours && editableShop.hours[day]) {
+      return editableShop.hours[day];
+    }
+    // Fallback if the database has 'Lunes-Viernes' instead of individual days
+    if (editableShop.hours && editableShop.hours['Lunes-Viernes']) {
+      if (day !== 'Sábado' && day !== 'Domingo') {
+        return editableShop.hours['Lunes-Viernes'];
+      }
+    }
+    return 'Cerrado';
+  };
+
+  const setDayHours = (day: string, value: string) => {
+    setEditableShop(prev => {
+      const newHours = { ...prev.hours };
+      // Delete the old legacy key so it gets migrated cleanly
+      if ('Lunes-Viernes' in newHours) {
+        const legacyVal = newHours['Lunes-Viernes'];
+        ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'].forEach(d => {
+          if (!newHours[d]) {
+            newHours[d] = legacyVal;
+          }
+        });
+        delete newHours['Lunes-Viernes'];
+      }
+      newHours[day] = value;
+      return {
+        ...prev,
+        hours: newHours
+      };
+    });
   };
 
   // Services actions
@@ -266,7 +302,7 @@ const ShopProfileView: React.FC<ShopProfileViewProps> = ({ shop, onUpdateProfile
         </header>
 
         {/* Tabs de Navegación de Perfil */}
-        <div className="flex border-b border-slate-200/80 space-x-1 overflow-x-auto pb-px">
+        <div className="flex border-b border-slate-200/80 overflow-x-auto pb-px scrollbar-none -mx-6 px-6 md:mx-0 md:px-0 scroll-smooth snap-x">
           {[
             { id: 'info', label: 'Información & IA', icon: '💈' },
             { id: 'services', label: 'Carta de Servicios', icon: '💰' },
@@ -276,7 +312,7 @@ const ShopProfileView: React.FC<ShopProfileViewProps> = ({ shop, onUpdateProfile
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center space-x-2 px-5 py-3 border-b-2 font-black text-xs uppercase tracking-widest transition-all ${activeTab === tab.id ? 'border-red-600 text-red-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+              className={`flex items-center space-x-2 px-5 py-3 border-b-2 font-black text-xs uppercase tracking-widest transition-all flex-shrink-0 whitespace-nowrap snap-center ${activeTab === tab.id ? 'border-red-600 text-red-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
             >
               <span>{tab.icon}</span>
               <span>{tab.label}</span>
@@ -664,22 +700,75 @@ const ShopProfileView: React.FC<ShopProfileViewProps> = ({ shop, onUpdateProfile
               {/* Horarios de Apertura */}
               <div className="md:col-span-1 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-6">
                 <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest border-b border-slate-50 pb-3">Horario Semanal</h3>
-                <div className="space-y-3">
-                  {Object.keys(editableShop.hours).map((day) => (
-                    <div key={day} className="flex justify-between items-center text-xs">
-                      <span className="text-slate-400 font-bold uppercase tracking-wider">{day}</span>
-                      {isEditing ? (
-                        <input 
-                          type="text" 
-                          value={editableShop.hours[day]} 
-                          onChange={(e) => handleHoursChange(day, e.target.value)} 
-                          className="w-32 p-1.5 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-bold text-right outline-none focus:border-red-600 focus:bg-white" 
-                        />
-                      ) : (
-                        <span className="font-black text-slate-900 uppercase tracking-tight">{editableShop.hours[day]}</span>
-                      )}
-                    </div>
-                  ))}
+                <div className="space-y-4">
+                  {DAYS_OF_WEEK.map((day) => {
+                    const currentVal = getDayHours(day);
+                    const isOpen = currentVal !== 'Cerrado';
+                    let opening = '09:00';
+                    let closing = '18:00';
+                    if (isOpen && currentVal.includes('-')) {
+                      const parts = currentVal.split('-');
+                      opening = parts[0].trim();
+                      closing = parts[1].trim();
+                    }
+                    return (
+                      <div key={day} className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3 last:border-0 last:pb-0 gap-2">
+                        <div className="flex items-center space-x-3">
+                          <span className="text-xs font-black text-slate-700 uppercase tracking-wider min-w-[70px]">{day}</span>
+                          {isEditing && (
+                            <label className="relative inline-flex items-center cursor-pointer">
+                              <input 
+                                type="checkbox" 
+                                checked={isOpen}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setDayHours(day, '09:00 - 18:00');
+                                  } else {
+                                    setDayHours(day, 'Cerrado');
+                                  }
+                                }}
+                                className="sr-only peer"
+                              />
+                              <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                              <span className="ml-2 text-[10px] font-black uppercase text-slate-400 peer-checked:text-emerald-600">
+                                {isOpen ? 'Abierto' : 'Cerrado'}
+                              </span>
+                            </label>
+                          )}
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                          {isEditing ? (
+                            isOpen ? (
+                              <div className="flex items-center space-x-1.5">
+                                <input 
+                                  type="time" 
+                                  value={opening} 
+                                  onChange={(e) => setDayHours(day, `${e.target.value} - ${closing}`)} 
+                                  className="p-1 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-black text-slate-800 outline-none focus:border-red-600 focus:bg-white w-18"
+                                />
+                                <span className="text-[10px] font-bold text-slate-400">a</span>
+                                <input 
+                                  type="time" 
+                                  value={closing} 
+                                  onChange={(e) => setDayHours(day, `${opening} - ${e.target.value}`)} 
+                                  className="p-1 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-black text-slate-800 outline-none focus:border-red-600 focus:bg-white w-18"
+                                />
+                              </div>
+                            ) : (
+                              <span className="text-[10px] font-black uppercase text-slate-300 tracking-wider">No laborable</span>
+                            )
+                          ) : (
+                            isOpen ? (
+                              <span className="font-black text-slate-900 text-xs tracking-tight bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200/50">{currentVal}</span>
+                            ) : (
+                              <span className="text-[10px] font-black uppercase text-red-600 bg-red-50 border border-red-100/50 px-2 py-1 rounded-md">Cerrado</span>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>

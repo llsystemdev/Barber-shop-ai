@@ -602,13 +602,25 @@ async function startServer() {
                 required: ['slots']
             };
 
+            const hoursStr = shop?.hours ? JSON.stringify(shop.hours) : 'no especificado';
+            const contentsPrompt = `Eres el sistema de reservas para "${shop?.name || 'la Barbería'}". Genera un conjunto de horarios disponibles para el servicio "${service || 'Servicio'}" el día "${date || new Date().toISOString().split('T')[0]}". 
+
+Los horarios de atención configurados de la barbería son: ${hoursStr}.
+
+Instrucciones críticas:
+1. Determina qué día de la semana corresponde a la fecha "${date}" (el formato es YYYY-MM-DD). El día de la semana será Lunes, Martes, Miércoles, Jueves, Viernes, Sábado o Domingo.
+2. Compara el día de la semana con la configuración de horarios de la barbería:
+   - Si la barbería tiene configurado ese día como "Cerrado" o no laborable, o si no está configurado en absoluto, debes devolver un array vacío: {"slots": []}.
+   - Si la barbería tiene configurado ese día con un rango (por ejemplo, "09:00 - 18:00"), genera entre 6 y 8 opciones de horarios disponibles distribuidos únicamente dentro de ese rango de horas.
+3. Devuelve un JSON con la clave "slots" conteniendo un array de strings de horas en formato HH:MM (ejemplo: "10:15"). No añadas explicaciones, solo el JSON estructurado.`;
+
             const response = await ai.models.generateContent({
                 model: 'gemini-3.5-flash',
-                contents: `Eres el sistema de reservas para "${shop?.name || 'la Barbería'}". Genera un conjunto de horarios disponibles para el servicio "${service || 'Servicio'}" el día "${date || new Date().toISOString().split('T')[0]}". Devuelve un JSON con la clave "slots" conteniendo un array de strings de horas en formato HH:MM (ejemplo: "10:15"). Asegúrate de incluir entre 6 y 8 opciones distribuidas a lo largo del día.`,
+                contents: contentsPrompt,
                 config: {
                     responseMimeType: "application/json",
                     responseSchema: slotsSchema,
-                    temperature: 1,
+                    temperature: 0.7,
                 },
             });
 
