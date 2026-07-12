@@ -42,6 +42,13 @@ const ShopProfileView: React.FC<ShopProfileViewProps> = ({ shop, onUpdateProfile
     setIsEditing(false);
   }, [shop]);
 
+  useEffect(() => {
+    const activeElement = document.getElementById(`tab-${activeTab}`);
+    if (activeElement) {
+      activeElement.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+  }, [activeTab]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setEditableShop(prev => ({ ...prev, [name]: value }));
@@ -258,7 +265,7 @@ const ShopProfileView: React.FC<ShopProfileViewProps> = ({ shop, onUpdateProfile
   };
 
   return (
-    <div className="w-full h-full bg-slate-50 overflow-y-auto p-4 sm:p-6 lg:p-10 relative">
+    <div className="w-full min-h-full bg-slate-50 p-4 sm:p-6 lg:p-10 relative">
       {isUploading && (
         <div className="fixed inset-0 bg-slate-950/65 backdrop-blur-sm z-[100] flex items-center justify-center p-6 animate-fade-in">
           <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-xs w-full text-center border border-slate-100">
@@ -337,31 +344,37 @@ const ShopProfileView: React.FC<ShopProfileViewProps> = ({ shop, onUpdateProfile
         </header>
 
         {/* Tabs de Navegación de Perfil */}
-        <div 
-          role="tablist"
-          aria-label="Secciones de perfil de barbería"
-          onKeyDown={handleKeyDown}
-          className="flex border-b border-slate-200/80 overflow-x-auto pb-px scrollbar-none -mx-4 px-4 sm:-mx-6 sm:px-6 md:mx-0 md:px-0 scroll-smooth snap-x snap-mandatory touch-pan-x gap-1"
-        >
-          {tabs.map(tab => (
-            <button
-              id={`tab-${tab.id}`}
-              role="tab"
-              aria-selected={activeTab === tab.id}
-              aria-controls={`panel-${tab.id}`}
-              tabIndex={activeTab === tab.id ? 0 : -1}
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center space-x-2 px-5 py-3 border-b-2 font-black text-xs uppercase tracking-widest transition-all duration-300 flex-shrink-0 whitespace-nowrap snap-center min-h-[44px] cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2 focus-visible:rounded-lg ${
-                activeTab === tab.id 
-                  ? 'border-red-600 text-red-600 scale-100' 
-                  : 'border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-300'
-              }`}
-            >
-              <span className="text-sm">{tab.icon}</span>
-              <span>{tab.label}</span>
-            </button>
-          ))}
+        <div className="relative border-b border-slate-200/80 -mx-4 px-4 sm:-mx-6 sm:px-6 md:mx-0 md:px-0">
+          {/* Fading overlay hints to indicate scrollable content on mobile */}
+          <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-slate-50 to-transparent pointer-events-none z-10 md:hidden" />
+          <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-slate-50 to-transparent pointer-events-none z-10 md:hidden" />
+          
+          <div 
+            role="tablist"
+            aria-label="Secciones de perfil de barbería"
+            onKeyDown={handleKeyDown}
+            className="flex overflow-x-auto pb-px scrollbar-none scroll-smooth snap-x snap-mandatory touch-pan-x gap-1"
+          >
+            {tabs.map(tab => (
+              <button
+                id={`tab-${tab.id}`}
+                role="tab"
+                aria-selected={activeTab === tab.id}
+                aria-controls={`panel-${tab.id}`}
+                tabIndex={activeTab === tab.id ? 0 : -1}
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`flex items-center space-x-2 px-5 py-3 border-b-2 font-black text-xs uppercase tracking-widest transition-all duration-300 flex-shrink-0 whitespace-nowrap snap-center min-h-[44px] cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2 focus-visible:rounded-lg ${
+                  activeTab === tab.id 
+                    ? 'border-red-600 text-red-600 scale-100' 
+                    : 'border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-300'
+                }`}
+              >
+                <span className="text-sm">{tab.icon}</span>
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Input oculto para subir avatares de barberos */}

@@ -714,9 +714,9 @@ const App: React.FC = () => {
         onGoHome={() => { lastHandledUserIdRef.current = null; setCurrentUser(null); setScreen('home'); }}
         onRegister={() => { lastHandledUserIdRef.current = null; setCurrentUser(null); setScreen('login'); }}
       />
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <MainHeader title={activeView} onMenuClick={() => setIsSidebarOpen(true)} />
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto min-w-0">
           <React.Suspense fallback={
             <div className="flex-1 flex flex-col items-center justify-center p-12 bg-slate-50 min-h-[60vh]">
               <div className="w-10 h-10 border-4 border-red-600 border-t-transparent rounded-full animate-spin mb-4"></div>
