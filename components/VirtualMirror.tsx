@@ -25,6 +25,7 @@ interface VirtualMirrorProps {
   onUploadNew: () => void;
   onImageClick: (url: string, caption: string) => void;
   onReloadAll: () => void; // Added global reload prop
+  isOffline?: boolean;
 }
 
 const Loader: React.FC<{text?: string}> = ({text = "Generando..."}) => (
@@ -201,11 +202,22 @@ const VirtualMirror: React.FC<VirtualMirrorProps> = (props) => {
       <div className="w-full max-w-6xl mx-auto space-y-8">
         
         {/* Header Premium */}
-        <header className="text-center">
-          <h2 className="text-3xl font-black text-slate-950 uppercase tracking-tighter mb-2">Espejo Virtual <span className="text-red-600 italic">Barber AI</span></h2>
-          <div className="bg-red-50 text-red-700 inline-block px-4 py-1.5 rounded-full border border-red-100">
-            <p className="font-black uppercase text-[9px] tracking-[0.2em]">Instrucciones: Prueba tonos, ángulos o activa la Comparativa de Deslizamiento</p>
-          </div>
+        <header className="text-center space-y-3">
+          <h2 className="text-3xl font-black text-slate-950 uppercase tracking-tighter mb-1">Espejo Virtual <span className="text-red-600 italic">Barber AI</span></h2>
+          
+          {props.isOffline ? (
+            <div className="bg-slate-900 text-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-2.5 rounded-2xl border border-slate-800 text-xs shadow-md max-w-2xl mx-auto">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 bg-amber-500 rounded-full animate-ping"></span>
+                <span className="font-black tracking-wider uppercase text-[9px] text-amber-400">Soporte Inteligente Offline (Local)</span>
+              </div>
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Simulación local activa por límite de conexión o API</span>
+            </div>
+          ) : (
+            <div className="bg-red-50 text-red-700 inline-block px-4 py-1.5 rounded-full border border-red-100">
+              <p className="font-black uppercase text-[9px] tracking-[0.2em]">Instrucciones: Prueba tonos, ángulos o activa la Comparativa de Deslizamiento</p>
+            </div>
+          )}
         </header>
 
         {/* Sección de Comparación Split-Slider Activo */}

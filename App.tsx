@@ -97,6 +97,7 @@ const App: React.FC = () => {
   const [selectedImageForModal, setSelectedImageForModal] = useState<{url: string, caption: string} | null>(null);
   const [isSavingResults, setIsSavingResults] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [isMirrorOffline, setIsMirrorOffline] = useState(false);
 
   const unsubscribeBookingsRef = useRef<(() => void) | null>(null);
   const lastHandledUserIdRef = useRef<string | null>(null);
@@ -419,6 +420,7 @@ const App: React.FC = () => {
 
           setSuggestedStyles(analysis.styles);
           setAnalysisResult(analysis.finalRecommendation);
+          setIsMirrorOffline(!!analysis.isOfflineFallback);
           setMirrorState('results');
 
           if (currentUser?.isGuest) {
@@ -786,6 +788,7 @@ const App: React.FC = () => {
                     isGuest={currentUser?.isGuest}
                     simulationsCount={guestSimulationsCount}
                     error={analysisError}
+                    isOffline={isMirrorOffline}
                 />
             )}
             {activeView === 'booking' && (

@@ -32,6 +32,7 @@ interface MirrorViewProps {
     isGuest?: boolean;
     simulationsCount?: number;
     error?: string | null;
+    isOffline?: boolean;
 }
 
 const MirrorView: React.FC<MirrorViewProps> = (props) => {
@@ -79,6 +80,7 @@ const MirrorView: React.FC<MirrorViewProps> = (props) => {
                 onUploadNew={props.onUploadNew} 
                 onImageClick={props.onImageClick} 
                 onReloadAll={props.onReloadAll}
+                isOffline={props.isOffline}
             />
         )}
         </div>
