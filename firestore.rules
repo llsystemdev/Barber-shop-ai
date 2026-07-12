@@ -2,47 +2,121 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Colección de Barberías
+    // Global Safety Net (default-deny catch-all)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- SECURITY HELPER FUNCTIONS ---
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    function hasUserDoc() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function isPlatformAdmin() {
+      return isSignedIn() && hasUserDoc() && getUserData().role == 'platformAdmin';
+    }
+
+    // --- COLLECTION RULES ---
+
+    // Colección de Usuarios
+    match /users/{userId} {
+      // Perfiles legibles por cualquier usuario autenticado
+      allow read: if isSignedIn();
+      // Permitir creación si está autenticado como ese mismo usuario
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      // Impedir escalada de privilegios al actualizar el perfil propio (role no modificable por el cliente)
+      allow update: if isSignedIn() && request.auth.uid == userId && (
+        !request.resource.data.keys().hasAny(['role']) || 
+        request.resource.data.role == resource.data.role
+      );
+      // Solo el administrador de la plataforma puede borrar perfiles directamente
+      allow delete: if isPlatformAdmin();
+    }
+    
+    // Colección de Barberías (Shops)
     match /shops/{shopId} {
-      // Cualquiera (clientes, invitados y el backend) puede ver la información de las barberías
+      // Cualquiera (clientes, invitados y dueños) puede leer los datos de la barbería para agendar citas o ver información
       allow read: if true;
-      // Permitido para dueños autenticados o sincronización del backend servidor
-      allow write: if request.auth != null || true;
+      // Creación permitida para el dueño o administrador
+      allow create: if isSignedIn() && (request.auth.uid == shopId || isPlatformAdmin());
+      // Edición permitida para el dueño, sin cambiar el ID de la barbería
+      allow update: if isSignedIn() && (request.auth.uid == shopId || isPlatformAdmin()) && request.resource.data.id == resource.data.id;
+      // Borrado permitido solo para el dueño o administrador
+      allow delete: if isSignedIn() && (request.auth.uid == shopId || isPlatformAdmin());
     }
     
     // Colección de Reservas (Bookings)
     match /bookings/{bookingId} {
-      // Cualquiera puede ver las reservas para validar disponibilidad de horarios en tiempo real
-      allow read: if true;
-      // Clientes autenticados, invitados y el servidor pueden crear reservas
-      allow create: if true;
-      // Sincronización de reservas, edición y cancelaciones autorizadas
-      allow update, delete: if request.auth != null || true;
+      // Todos los usuarios autenticados pueden ver y listar las reservas para verificar horarios
+      allow read, list: if isSignedIn();
+      // Un cliente autenticado puede crear una reserva para sí mismo
+      allow create: if isSignedIn() && (request.resource.data.userId == request.auth.uid || isPlatformAdmin());
+      // Edición o cancelación permitida para el creador de la cita, el dueño de la tienda, o el admin
+      allow update, delete: if isSignedIn() && (
+        resource.data.userId == request.auth.uid || 
+        resource.data.shopId == request.auth.uid || 
+        isPlatformAdmin()
+      );
     }
     
-    // Colección de Usuarios
-    match /users/{userId} {
-      // Perfiles legibles y escribibles por usuarios autenticados o por el backend servidor
-      allow read, write: if request.auth != null || true;
-    }
-    
-    // Colecciones secundarias del sistema sincronizadas por el servidor
+    // Colección de Sesiones de Espejo Virtual (Mirror Sessions)
     match /mirror_sessions/{sessionId} {
-      allow read, write: if true;
-    }
-    match /securityLogs/{logId} {
-      allow read, write: if true;
-    }
-    match /supportTickets/{ticketId} {
-      allow read, write: if true;
-    }
-    match /userConsents/{consentId} {
-      allow read, write: if true;
+      // Regla de aislamiento estricto de PII: solo el dueño de la sesión puede leer o escribir sus datos
+      allow read, write: if isSignedIn() && sessionId == request.auth.uid;
     }
     
-    // Colección de Artículos de Blog
+    // Colección de Artículos de Blog (Blog Posts)
     match /blogPosts/{postId} {
-      allow read, write: if true;
+      // Artículos legibles públicamente para soporte SEO y mercadeo
+      allow read, list: if true;
+      // Creación autorizada únicamente para el dueño de la barbería (shopId) o admin
+      allow create: if isSignedIn() && (request.resource.data.shopId == request.auth.uid || isPlatformAdmin());
+      // Edición restringida al dueño de la barbería respectiva
+      allow update: if isSignedIn() && (
+        (resource.data.shopId == request.auth.uid && request.resource.data.shopId == resource.data.shopId) || 
+        isPlatformAdmin()
+      );
+      // Eliminación permitida para el dueño o admin
+      allow delete: if isSignedIn() && (resource.data.shopId == request.auth.uid || isPlatformAdmin());
+    }
+    
+    // Colección de Logs de Seguridad (Security Logs)
+    match /securityLogs/{logId} {
+      // Solo escritura para auditoría del sistema
+      allow create: if isSignedIn();
+      allow read, update, delete: if false;
+    }
+    
+    // Colección de Tickets de Soporte (Support Tickets)
+    match /supportTickets/{ticketId} {
+      allow create: if isSignedIn();
+      allow read: if isSignedIn() && (
+        resource.data.shopId == request.auth.uid || 
+        resource.data.email == request.auth.token.email || 
+        isPlatformAdmin()
+      );
+      allow update: if isSignedIn() && isPlatformAdmin();
+      allow delete: if false;
+    }
+    
+    // Colección de Consentimientos de Usuario (GDPR / Privacidad)
+    match /userConsents/{consentId} {
+      allow create: if isSignedIn();
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isPlatformAdmin());
+      allow update, delete: if false;
     }
   }
 }

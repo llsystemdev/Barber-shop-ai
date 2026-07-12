@@ -20,12 +20,13 @@ async function test() {
     const app = initializeApp(firebaseConfig);
     console.log('Initialized Firebase Client App!');
     
-    const db = firebaseConfig.firestoreDatabaseId
-      ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
+    const dbId = firebaseConfig.firestoreDatabaseId;
+    const db = (dbId && dbId !== "(default)" && dbId !== "default" && dbId !== "") 
+      ? getFirestore(app, dbId)
       : getFirestore(app);
     
-    console.log('Attempting to write document to analyses collection...');
-    const ref = doc(db, 'analyses', 'test_client_analysis');
+    console.log('Attempting to write document to mirror_sessions collection...');
+    const ref = doc(db, 'mirror_sessions', 'test_client_session');
     await setDoc(ref, { style: 'Fade Cut', score: 95, test: true });
     console.log('Successfully wrote to analyses collection via Client SDK!');
     
