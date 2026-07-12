@@ -1,10 +1,13 @@
 
-export type Sender = 'user' | 'ai';
+export type Sender = 'user' | 'ai' | 'model';
 
 export interface Message {
   id: string;
-  sender: Sender;
+  sender?: Sender;
+  role?: 'user' | 'model';
   text?: string;
+  parts?: Array<{ text: string }>;
+  timestamp?: Date;
   suggestedStyles?: string[]; // For AI to suggest styles that can be visualized
 }
 

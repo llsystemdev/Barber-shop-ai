@@ -212,10 +212,26 @@ async function startServer() {
                 return res.json({ text: reply });
             }
 
-            const contents = history.map((msg: any) => ({
-                role: msg.role,
-                parts: [{ text: msg.parts[0].text }]
-            }));
+            const contents = (history || []).map((msg: any) => {
+                // Get text value safely
+                let textVal = '';
+                if (msg.parts && msg.parts.length > 0 && msg.parts[0] && typeof msg.parts[0].text === 'string') {
+                    textVal = msg.parts[0].text;
+                } else if (typeof msg.text === 'string') {
+                    textVal = msg.text;
+                }
+                
+                // Get role safely (Gemini only supports 'user' and 'model')
+                let roleVal = 'user';
+                if (msg.role === 'model' || msg.role === 'ai' || msg.sender === 'ai' || msg.role === 'assistant') {
+                    roleVal = 'model';
+                }
+                
+                return {
+                    role: roleVal,
+                    parts: [{ text: textVal }]
+                };
+            }).filter((c: any) => c.parts[0].text.trim() !== '');
 
             contents.push({ role: 'user', parts: [{ text: message }] });
 

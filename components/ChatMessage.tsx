@@ -21,8 +21,13 @@ const UserIcon: React.FC = () => (
 );
 
 const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
-  const { sender, text } = message;
-  const isUser = sender === 'user';
+  const role = message.role || (message.sender === 'ai' ? 'model' : message.sender) || 'model';
+  const isUser = role === 'user';
+  const rawText = message.text || message.parts?.[0]?.text || '';
+
+  if (!rawText.trim()) {
+    return null;
+  }
 
   const messageContainerClasses = isUser ? 'flex justify-end' : 'flex justify-start';
   const messageBubbleClasses = isUser
@@ -30,7 +35,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
     : 'bg-gray-200 text-gray-800 rounded-lg rounded-bl-none';
 
   // Basic markdown-like formatting
-  const formattedText = text?.replace(/\[(.*?)\]/g, '**$1**') // Bold style names
+  const formattedText = rawText.replace(/\[(.*?)\]/g, '**$1**') // Bold style names
     .split('**').map((part, i) => i % 2 === 1 ? <strong key={i} className="font-bold text-red-600">{part}</strong> : part)
     .flatMap(part => typeof part === 'string' ? part.split('\n').map((line, j) => <span key={`${j}`}>{line}<br/></span>) : [part]);
 
@@ -40,7 +45,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
       <div className={`flex items-start max-w-xl ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
         {!isUser && <BarberPoleIcon />}
         <div className={`px-4 py-3 shadow-md w-full ${messageBubbleClasses}`}>
-            {text && <p className="text-base whitespace-pre-wrap">{formattedText}</p>}
+            <p className="text-base whitespace-pre-wrap">{formattedText}</p>
         </div>
         {isUser && <UserIcon />}
       </div>

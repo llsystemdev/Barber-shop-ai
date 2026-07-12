@@ -290,6 +290,7 @@ const App: React.FC = () => {
     const userMsg: Message = {
         id: Date.now().toString(),
         role: 'user',
+        text: text,
         parts: [{ text }],
         timestamp: new Date()
     };
@@ -298,10 +299,14 @@ const App: React.FC = () => {
     setIsAiLoading(true);
 
     try {
-        const history = messages.map(m => ({
-            role: m.role,
-            parts: m.parts
-        }));
+        const history = messages.map(m => {
+            const textVal = m.text || m.parts?.[0]?.text || '';
+            const roleVal = m.role || (m.sender === 'ai' ? 'model' : m.sender) || 'model';
+            return {
+                role: roleVal === 'user' ? 'user' : 'model',
+                parts: [{ text: textVal }]
+            };
+        }).filter(h => h.parts[0].text.trim() !== '');
 
         const response = await fetch('/api/chat', {
             method: 'POST',
@@ -313,11 +318,17 @@ const App: React.FC = () => {
             })
         });
 
+        if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData.error || `Servidor respondió con código ${response.status}`);
+        }
+
         const data = await response.json();
         
         const aiMsg: Message = {
             id: (Date.now() + 1).toString(),
             role: 'model',
+            text: data.text || 'Lo siento, hubo un error.',
             parts: [{ text: data.text || 'Lo siento, hubo un error.' }],
             timestamp: new Date()
         };
@@ -327,7 +338,7 @@ const App: React.FC = () => {
         console.warn("Using smart offline mock assistant fallback:", e);
         
         const normalizedMsg = text.toLowerCase();
-        let fallbackText = `¡Excelente pregunta! Como estilista master de ${currentShop.name}, te recomiendo siempre cuidar la hidratación de tu cabello. Si quieres que analice tus facciones detalladamente para recomendarte el mejor estilo, ve a 'Espejo Virtual' y sube tus fotos de frente y perfil. O si prefieres reservar, ve a 'Agendar Cita'. ¿Hay algo específico sobre estilismo en lo que te gustaría que te asesore?`;
+        let fallbackText = `¡Excelente pregunta! Como estilista master de ${currentShop.name}, te recomiendo siempre cuidar la hidratación de tu cabello. Si quieres que analice tus facciones detalladamente para recomendarte el mejor estilo, ve a 'Espejo Virtual' y sube tus fotos de frente y perfil. O si prefieres reservar, ve a 'Agendar Cita'. ¿Hay algo específico sobre estilismo en lo que te gustaría que te aseore?`;
         
         if (normalizedMsg.includes("hola") || normalizedMsg.includes("buenos dias") || normalizedMsg.includes("buenas tardes")) {
             fallbackText = `¡Hola! Bienvenido/a a ${currentShop.name}. Soy ${currentShop.aiName || "tu Asistente AI"}, tu estilista de inteligencia artificial personal. ¿Listo para encontrar tu próximo gran look hoy? Podemos analizar tu rostro en el 'Espejo Virtual' o agendar una cita directa.`;
@@ -344,6 +355,7 @@ const App: React.FC = () => {
         const mockAiMsg: Message = {
             id: (Date.now() + 1).toString(),
             role: 'model',
+            text: fallbackText,
             parts: [{ text: fallbackText }],
             timestamp: new Date()
         };
