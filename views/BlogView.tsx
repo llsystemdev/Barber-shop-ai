@@ -692,7 +692,7 @@ const BlogView: React.FC<BlogViewProps> = ({ currentUser, currentShop, onNavigat
           ) : (
             
             /* Public Reader List view (grid of nice cards) */
-            <div className="flex overflow-x-auto pb-4 gap-6 scrollbar-none -mx-6 px-6 md:mx-0 md:px-0 md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-6 scroll-smooth snap-x">
+            <div className="flex overflow-x-auto pb-4 gap-6 scrollbar-none -mx-4 px-4 sm:-mx-6 sm:px-6 md:mx-0 md:px-0 md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-6 scroll-smooth snap-x">
               {posts.map((post) => (
                 <article 
                   key={post.id} 

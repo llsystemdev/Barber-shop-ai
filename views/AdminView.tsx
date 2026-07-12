@@ -177,7 +177,7 @@ const AdminView: React.FC<AdminViewProps> = ({ currentUser, currentShop, booking
     const { stats, planDistribution } = platformData;
     
     return (
-      <div className="w-full bg-slate-50 p-6 lg:p-10 space-y-10 min-h-full">
+      <div className="w-full bg-slate-50 p-4 sm:p-6 lg:p-10 space-y-10 min-h-full">
         {/* Header Superior SaaS */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div>
@@ -203,7 +203,7 @@ const AdminView: React.FC<AdminViewProps> = ({ currentUser, currentShop, booking
         </div>
 
         {/* SaaS Global Cards */}
-        <div className="flex overflow-x-auto pb-4 gap-6 scrollbar-none -mx-6 px-6 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:gap-6 scroll-smooth snap-x">
+        <div className="flex overflow-x-auto pb-4 gap-6 scrollbar-none -mx-4 px-4 sm:-mx-6 sm:px-6 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:gap-6 scroll-smooth snap-x">
           <div className="flex-shrink-0 w-[240px] sm:w-auto snap-center">
             <StatCard 
               title="Ingresos Recurrentes (MRR)" 
@@ -900,7 +900,7 @@ const AdminView: React.FC<AdminViewProps> = ({ currentUser, currentShop, booking
   };
 
   return (
-    <div className="w-full bg-slate-50 p-6 lg:p-10 space-y-10 min-h-full">
+    <div className="w-full bg-slate-50 p-4 sm:p-6 lg:p-10 space-y-10 min-h-full">
       {/* Header Premium */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="relative">
@@ -922,7 +922,7 @@ const AdminView: React.FC<AdminViewProps> = ({ currentUser, currentShop, booking
       </div>
 
       {/* Stat Cards */}
-      <div className="flex overflow-x-auto pb-4 gap-6 scrollbar-none -mx-6 px-6 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:gap-6 scroll-smooth snap-x">
+      <div className="flex overflow-x-auto pb-4 gap-6 scrollbar-none -mx-4 px-4 sm:-mx-6 sm:px-6 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:gap-6 scroll-smooth snap-x">
         <div className="flex-shrink-0 w-[240px] sm:w-auto snap-center">
           <StatCard 
             title="Análisis IA" 

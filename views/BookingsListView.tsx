@@ -68,7 +68,7 @@ const BookingsListView: React.FC<BookingsListViewProps> = ({ bookings, onNavigat
   });
 
   return (
-    <div className="w-full h-full flex flex-col p-6 bg-slate-50 overflow-y-auto">
+    <div className="w-full h-full flex flex-col p-4 sm:p-6 bg-slate-50 overflow-y-auto">
       <div className="w-full max-w-4xl mx-auto space-y-8">
         
         {/* Header con Sincronización */}
@@ -89,7 +89,7 @@ const BookingsListView: React.FC<BookingsListViewProps> = ({ bookings, onNavigat
 
         {/* Filtros Premium */}
         {activeBookings.length > 0 && (
-          <div className="flex border-b border-slate-200/80 overflow-x-auto pb-px scrollbar-none -mx-6 px-6 md:mx-0 md:px-0 scroll-smooth snap-x">
+          <div className="flex border-b border-slate-200/80 overflow-x-auto pb-px scrollbar-none -mx-4 px-4 sm:-mx-6 sm:px-6 md:mx-0 md:px-0 scroll-smooth snap-x">
             {[
               { id: 'upcoming', label: 'Próximas Citas' },
               { id: 'past', label: 'Historial / Pasados' },

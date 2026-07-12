@@ -84,7 +84,7 @@ const BillingView: React.FC<BillingViewProps> = ({ shop, onUpdatePlan, onUpdateP
         currentPlan={shop.plan}
         shopId={shop.id}
       />
-      <div className="w-full h-full bg-slate-50 overflow-y-auto p-6 lg:p-10">
+      <div className="w-full h-full bg-slate-50 overflow-y-auto p-4 sm:p-6 lg:p-10">
         <div className="max-w-6xl mx-auto">
           <header className="mb-12">
             <h1 className="text-4xl font-black text-slate-950 uppercase tracking-tight">Facturación y Plan</h1>
@@ -128,7 +128,7 @@ const BillingView: React.FC<BillingViewProps> = ({ shop, onUpdatePlan, onUpdateP
                   <div className="absolute top-0 right-0 p-4 bg-red-700 text-white font-black text-[10px] uppercase tracking-widest rounded-bl-xl shadow-lg">Oferta de Lanzamiento</div>
                   <h3 className="text-2xl font-black text-slate-950 mb-4 uppercase tracking-widest">Planes de Crecimiento</h3>
                   <p className="text-slate-500 font-bold text-[10px] uppercase tracking-widest mb-8">Todos los planes son gratuitos por tiempo limitado para nuestros primeros usuarios.</p>
-                  <div className="flex overflow-x-auto pb-4 gap-6 scrollbar-none -mx-6 px-6 md:mx-0 md:px-0 md:grid md:grid-cols-3 md:gap-6 scroll-smooth snap-x">
+                  <div className="flex overflow-x-auto pb-4 gap-6 scrollbar-none -mx-4 px-4 sm:-mx-6 sm:px-6 md:mx-0 md:px-0 md:grid md:grid-cols-3 md:gap-6 scroll-smooth snap-x">
                       {(Object.keys(plans) as PlanName[]).map((name) => {
                         const plan = plans[name];
                         const isCurrentPlan = shop.plan === name;

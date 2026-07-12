@@ -197,7 +197,7 @@ const VirtualMirror: React.FC<VirtualMirrorProps> = (props) => {
   const activeOriginalImage = props.activeAngle === 'side' ? props.sideImage : props.frontImage;
 
   return (
-    <div className="w-full h-full flex flex-col items-center justify-start p-6 lg:p-10 relative overflow-y-auto bg-slate-50">
+    <div className="w-full h-full flex flex-col items-center justify-start p-4 sm:p-6 lg:p-10 relative overflow-y-auto bg-slate-50">
       <div className="w-full max-w-6xl mx-auto space-y-8">
         
         {/* Header Premium */}
@@ -335,7 +335,7 @@ const VirtualMirror: React.FC<VirtualMirrorProps> = (props) => {
             )}
             
             {/* Grid de Peinados */}
-            <div className="flex overflow-x-auto pb-4 gap-4 scrollbar-none -mx-6 px-6 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-4 sm:gap-4 scroll-smooth snap-x">
+            <div className="flex overflow-x-auto pb-4 gap-4 scrollbar-none -mx-4 px-4 sm:-mx-6 sm:px-6 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-4 sm:gap-4 scroll-smooth snap-x">
               {props.styleNames.map((style, i) => {
                 const imgUrl = props.generatedImages[startIndex + i];
                 const isFav = favorites.some(f => f.styleName === style);

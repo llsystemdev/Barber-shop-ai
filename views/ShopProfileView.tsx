@@ -223,7 +223,7 @@ const ShopProfileView: React.FC<ShopProfileViewProps> = ({ shop, onUpdateProfile
   };
 
   return (
-    <div className="w-full h-full bg-slate-50 overflow-y-auto p-6 lg:p-10 relative">
+    <div className="w-full h-full bg-slate-50 overflow-y-auto p-4 sm:p-6 lg:p-10 relative">
       {isUploading && (
         <div className="fixed inset-0 bg-slate-950/65 backdrop-blur-sm z-[100] flex items-center justify-center p-6 animate-fade-in">
           <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-xs w-full text-center border border-slate-100">
@@ -246,7 +246,7 @@ const ShopProfileView: React.FC<ShopProfileViewProps> = ({ shop, onUpdateProfile
       <div className="max-w-6xl mx-auto space-y-8">
         
         {/* Header Premium de Barbería */}
-        <header className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <header className="bg-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl border border-slate-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="flex items-center space-x-2">
               <span className="text-[10px] bg-red-600 text-white px-3 py-1 rounded-full font-black uppercase tracking-widest">
@@ -302,7 +302,7 @@ const ShopProfileView: React.FC<ShopProfileViewProps> = ({ shop, onUpdateProfile
         </header>
 
         {/* Tabs de Navegación de Perfil */}
-        <div className="flex border-b border-slate-200/80 overflow-x-auto pb-px scrollbar-none -mx-6 px-6 md:mx-0 md:px-0 scroll-smooth snap-x">
+        <div className="flex border-b border-slate-200/80 overflow-x-auto pb-px scrollbar-none -mx-4 px-4 sm:-mx-6 sm:px-6 md:mx-0 md:px-0 scroll-smooth snap-x">
           {[
             { id: 'info', label: 'Información & IA', icon: '💈' },
             { id: 'services', label: 'Carta de Servicios', icon: '💰' },
@@ -549,7 +549,7 @@ const ShopProfileView: React.FC<ShopProfileViewProps> = ({ shop, onUpdateProfile
 
           {/* TAB 2: Carta de Servicios */}
           {activeTab === 'services' && (
-            <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+            <div className="bg-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl border border-slate-100 shadow-sm space-y-6">
               <div className="flex justify-between items-center border-b border-slate-100 pb-4">
                 <div>
                   <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Servicios Premium</h3>
@@ -620,7 +620,7 @@ const ShopProfileView: React.FC<ShopProfileViewProps> = ({ shop, onUpdateProfile
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               
               {/* Equipo de Expertos */}
-              <div className="md:col-span-2 bg-white p-6 md:p-8 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+              <div className="md:col-span-2 bg-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl border border-slate-100 shadow-sm space-y-6">
                 <div className="flex justify-between items-center border-b border-slate-100 pb-4">
                   <div>
                     <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Nuestro Staff Técnico</h3>
@@ -698,7 +698,7 @@ const ShopProfileView: React.FC<ShopProfileViewProps> = ({ shop, onUpdateProfile
               </div>
 
               {/* Horarios de Apertura */}
-              <div className="md:col-span-1 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+              <div className="md:col-span-1 bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-100 shadow-sm space-y-6">
                 <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest border-b border-slate-50 pb-3">Horario Semanal</h3>
                 <div className="space-y-4">
                   {DAYS_OF_WEEK.map((day) => {
@@ -776,7 +776,7 @@ const ShopProfileView: React.FC<ShopProfileViewProps> = ({ shop, onUpdateProfile
 
           {/* TAB 4: Políticas de Reserva */}
           {activeTab === 'policies' && (
-            <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-100 shadow-sm space-y-6 max-w-3xl">
+            <div className="bg-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl border border-slate-100 shadow-sm space-y-6 max-w-3xl">
               <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest border-b border-slate-50 pb-3">Políticas de Atención al Cliente</h3>
               
               <div className="space-y-4">
