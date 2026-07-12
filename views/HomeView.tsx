@@ -375,11 +375,11 @@ const HomeView: React.FC<HomeViewProps> = ({ onShowLogin, onGoHome, onStartGuest
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="flex overflow-x-auto pb-4 gap-8 scrollbar-none -mx-6 px-6 md:mx-0 md:px-0 md:grid md:grid-cols-2 lg:grid-cols-4 md:gap-8 scroll-smooth snap-x">
             {benefits.map((b, idx) => (
               <div 
                 key={idx} 
-                className="bg-slate-900/40 border border-slate-900 p-8 rounded-3xl hover:border-red-600/50 hover:bg-slate-900/60 transition-all duration-300 group hover:-translate-y-1"
+                className="bg-slate-900/40 border border-slate-900 p-8 rounded-3xl hover:border-red-600/50 hover:bg-slate-900/60 transition-all duration-300 group hover:-translate-y-1 flex-shrink-0 w-[280px] md:w-auto snap-center"
               >
                 <div className="text-4xl mb-4 bg-slate-900 w-14 h-14 rounded-2xl flex items-center justify-center border border-slate-800 group-hover:border-red-600/30 transition-colors">
                   {b.emoji}
@@ -403,27 +403,35 @@ const HomeView: React.FC<HomeViewProps> = ({ onShowLogin, onGoHome, onStartGuest
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            <FeatureCard 
-              icon={<MirrorIcon className="w-8 h-8"/>} 
-              title="Espejo Virtual IA" 
-              description="Análisis de visagismo digital. Los clientes prueban cortes de pelo, barbas y variaciones cromáticas al instante de forma interactiva."
-            />
-            <FeatureCard 
-              icon={<ChatIcon className="w-8 h-8"/>} 
-              title="Asistente de Estilismo" 
-              description="Consejero experto offline disponible 24/7. Responde dudas de cuidado personal, sugiere looks y estimula reservas automáticas."
-            />
-            <FeatureCard 
-              icon={<CalendarIcon className="w-8 h-8"/>} 
-              title="Reservas al Instante" 
-              description="Calendario inteligente de agendamiento. Los clientes eligen servicio, barbero y fecha disponible en segundos sin demoras."
-            />
-            <FeatureCard 
-              icon={<DashboardIcon className="w-8 h-8"/>} 
-              title="Panel de Control SaaS" 
-              description="Visualiza tus ingresos, popularidad de servicios, actividad de simulaciones y estadísticas de tu barbería en tiempo real."
-            />
+          <div className="flex overflow-x-auto pb-4 gap-8 scrollbar-none -mx-6 px-6 md:mx-0 md:px-0 md:grid md:grid-cols-2 lg:grid-cols-4 md:gap-8 scroll-smooth snap-x">
+            <div className="flex-shrink-0 w-[280px] md:w-auto snap-center">
+              <FeatureCard 
+                icon={<MirrorIcon className="w-8 h-8"/>} 
+                title="Espejo Virtual IA" 
+                description="Análisis de visagismo digital. Los clientes prueban cortes de pelo, barbas y variaciones cromáticas al instante de forma interactiva."
+              />
+            </div>
+            <div className="flex-shrink-0 w-[280px] md:w-auto snap-center">
+              <FeatureCard 
+                icon={<ChatIcon className="w-8 h-8"/>} 
+                title="Asistente de Estilismo" 
+                description="Consejero experto offline disponible 24/7. Responde dudas de cuidado personal, sugiere looks y estimula reservas automáticas."
+              />
+            </div>
+            <div className="flex-shrink-0 w-[280px] md:w-auto snap-center">
+              <FeatureCard 
+                icon={<CalendarIcon className="w-8 h-8"/>} 
+                title="Reservas al Instante" 
+                description="Calendario inteligente de agendamiento. Los clientes eligen servicio, barbero y fecha disponible en segundos sin demoras."
+              />
+            </div>
+            <div className="flex-shrink-0 w-[280px] md:w-auto snap-center">
+              <FeatureCard 
+                icon={<DashboardIcon className="w-8 h-8"/>} 
+                title="Panel de Control SaaS" 
+                description="Visualiza tus ingresos, popularidad de servicios, actividad de simulaciones y estadísticas de tu barbería en tiempo real."
+              />
+            </div>
           </div>
         </div>
       </section>
@@ -439,9 +447,9 @@ const HomeView: React.FC<HomeViewProps> = ({ onShowLogin, onGoHome, onStartGuest
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="flex overflow-x-auto pb-4 gap-8 scrollbar-none -mx-6 px-6 md:mx-0 md:px-0 md:grid md:grid-cols-3 md:gap-8 scroll-smooth snap-x">
             {testimonials.map((t, idx) => (
-              <div key={idx} className="bg-slate-900 border border-slate-900 rounded-3xl p-8 flex flex-col justify-between shadow-xl relative hover:border-slate-800 transition-all">
+              <div key={idx} className="bg-slate-900 border border-slate-900 rounded-3xl p-8 flex flex-col justify-between shadow-xl relative hover:border-slate-800 transition-all flex-shrink-0 w-[280px] md:w-auto snap-center">
                 <span className="text-6xl text-slate-800 absolute top-4 right-6 font-serif pointer-events-none">“</span>
                 <p className="text-slate-300 text-sm leading-relaxed italic relative z-10 mb-8">
                   {t.quote}
@@ -483,48 +491,54 @@ const HomeView: React.FC<HomeViewProps> = ({ onShowLogin, onGoHome, onStartGuest
             </span>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            <PricingCard 
-              plan="Freemium"
-              price="0"
-              features={[
-                "10 Análisis de IA / mes",
-                "Espejo Virtual Básico (Frente)",
-                "1 Estilista registrado",
-                "Gestión de agenda básica",
-                "Soporte comunitario vía email"
-              ]}
-              onCtaClick={onShowLogin}
-              isFeatured={false}
-            />
-            <PricingCard 
-              plan="Básico"
-              price={isYearly ? "15" : "19"}
-              isYearlyLabel={isYearly}
-              features={[
-                "100 Análisis de IA / mes",
-                "Espejo Virtual avanzado (Frente + Perfil)",
-                "Hasta 3 Estilistas en equipo",
-                "Confirmaciones por WhatsApp",
-                "Soporte técnico por correo"
-              ]}
-              onCtaClick={onShowLogin}
-              isFeatured={true}
-            />
-            <PricingCard 
-              plan="Profesional"
-              price={isYearly ? "39" : "49"}
-              isYearlyLabel={isYearly}
-              features={[
-                "Análisis de IA ilimitados",
-                "Propuestas en todos los ángulos",
-                "Estilistas ilimitados",
-                "SaaS Whitelabel (Marca Propia)",
-                "Soporte multicanal 24/7"
-              ]}
-              onCtaClick={onShowLogin}
-              isFeatured={false}
-            />
+          <div className="flex overflow-x-auto pb-4 gap-8 scrollbar-none -mx-6 px-6 md:mx-0 md:px-0 md:grid md:grid-cols-3 md:gap-8 max-w-5xl mx-auto scroll-smooth snap-x">
+            <div className="flex-shrink-0 w-[280px] md:w-auto snap-center">
+              <PricingCard 
+                plan="Freemium"
+                price="0"
+                features={[
+                  "10 Análisis de IA / mes",
+                  "Espejo Virtual Básico (Frente)",
+                  "1 Estilista registrado",
+                  "Gestión de agenda básica",
+                  "Soporte comunitario vía email"
+                ]}
+                onCtaClick={onShowLogin}
+                isFeatured={false}
+              />
+            </div>
+            <div className="flex-shrink-0 w-[280px] md:w-auto snap-center">
+              <PricingCard 
+                plan="Básico"
+                price={isYearly ? "15" : "19"}
+                isYearlyLabel={isYearly}
+                features={[
+                  "100 Análisis de IA / mes",
+                  "Espejo Virtual avanzado (Frente + Perfil)",
+                  "Hasta 3 Estilistas en equipo",
+                  "Confirmaciones por WhatsApp",
+                  "Soporte técnico por correo"
+                ]}
+                onCtaClick={onShowLogin}
+                isFeatured={true}
+              />
+            </div>
+            <div className="flex-shrink-0 w-[280px] md:w-auto snap-center">
+              <PricingCard 
+                plan="Profesional"
+                price={isYearly ? "39" : "49"}
+                isYearlyLabel={isYearly}
+                features={[
+                  "Análisis de IA ilimitados",
+                  "Propuestas en todos los ángulos",
+                  "Estilistas ilimitados",
+                  "SaaS Whitelabel (Marca Propia)",
+                  "Soporte multicanal 24/7"
+                ]}
+                onCtaClick={onShowLogin}
+                isFeatured={false}
+              />
+            </div>
           </div>
         </div>
       </section>

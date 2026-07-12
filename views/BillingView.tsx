@@ -128,12 +128,12 @@ const BillingView: React.FC<BillingViewProps> = ({ shop, onUpdatePlan, onUpdateP
                   <div className="absolute top-0 right-0 p-4 bg-red-700 text-white font-black text-[10px] uppercase tracking-widest rounded-bl-xl shadow-lg">Oferta de Lanzamiento</div>
                   <h3 className="text-2xl font-black text-slate-950 mb-4 uppercase tracking-widest">Planes de Crecimiento</h3>
                   <p className="text-slate-500 font-bold text-[10px] uppercase tracking-widest mb-8">Todos los planes son gratuitos por tiempo limitado para nuestros primeros usuarios.</p>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="flex overflow-x-auto pb-4 gap-6 scrollbar-none -mx-6 px-6 md:mx-0 md:px-0 md:grid md:grid-cols-3 md:gap-6 scroll-smooth snap-x">
                       {(Object.keys(plans) as PlanName[]).map((name) => {
                         const plan = plans[name];
                         const isCurrentPlan = shop.plan === name;
                         return (
-                          <div key={name} className={`p-6 rounded-2xl flex flex-col relative transition-all ${plan.color} border-2 ${isCurrentPlan ? 'border-red-600 ring-4 ring-red-100' : 'border-slate-200'}`}>
+                          <div key={name} className={`p-6 rounded-2xl flex flex-col relative transition-all ${plan.color} border-2 ${isCurrentPlan ? 'border-red-600 ring-4 ring-red-100' : 'border-slate-200'} flex-shrink-0 w-[240px] md:w-auto snap-center`}>
                               <h4 className="text-lg font-black mb-1 uppercase tracking-tight text-slate-900">{name}</h4>
                               <p className="text-3xl font-black mb-6 text-slate-950 tracking-tighter">{plan.price}<span className="text-xs font-bold text-slate-500 ml-1">/mes</span></p>
                               <ul className="space-y-4 mb-8 flex-grow">

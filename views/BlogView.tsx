@@ -692,11 +692,11 @@ const BlogView: React.FC<BlogViewProps> = ({ currentUser, currentShop, onNavigat
           ) : (
             
             /* Public Reader List view (grid of nice cards) */
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="flex overflow-x-auto pb-4 gap-6 scrollbar-none -mx-6 px-6 md:mx-0 md:px-0 md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-6 scroll-smooth snap-x">
               {posts.map((post) => (
                 <article 
                   key={post.id} 
-                  className="group bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden hover:shadow-xl hover:scale-[1.01] transition-all duration-300 flex flex-col cursor-pointer"
+                  className="group bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden hover:shadow-xl hover:scale-[1.01] transition-all duration-300 flex flex-col cursor-pointer flex-shrink-0 w-[280px] md:w-auto snap-center"
                   onClick={() => setSelectedPost(post)}
                 >
                   <div className="h-48 w-full relative overflow-hidden">

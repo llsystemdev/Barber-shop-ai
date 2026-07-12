@@ -203,42 +203,50 @@ const AdminView: React.FC<AdminViewProps> = ({ currentUser, currentShop, booking
         </div>
 
         {/* SaaS Global Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatCard 
-            title="Ingresos Recurrentes (MRR)" 
-            value={`$${stats.monthlyRecurringRevenue.toLocaleString()}`} 
-            icon={<BillingIcon className="w-5 h-5 text-red-600" />} 
-            change="+18.4% este mes"
-            changeType="increase"
-          />
-          <StatCard 
-            title="Barberías Registradas" 
-            value={stats.totalShops} 
-            icon={<ShopIcon className="w-5 h-5 text-red-600" />} 
-            change="+3 nuevos salones"
-            changeType="increase"
-          />
-          <StatCard 
-            title="Consultas de IA Totales" 
-            value={stats.totalPlatformAnalyses} 
-            icon={<ChatIcon className="w-5 h-5 text-red-600" />} 
-            change="+42% de uso en la red"
-            changeType="increase"
-          />
-          <StatCard 
-            title="Reservas Totales" 
-            value={stats.totalPlatformBookings} 
-            icon={<BookingsIcon className="w-5 h-5 text-red-600" />} 
-            change="+9.5% de efectividad"
-            changeType="increase"
-          />
+        <div className="flex overflow-x-auto pb-4 gap-6 scrollbar-none -mx-6 px-6 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:gap-6 scroll-smooth snap-x">
+          <div className="flex-shrink-0 w-[240px] sm:w-auto snap-center">
+            <StatCard 
+              title="Ingresos Recurrentes (MRR)" 
+              value={`$${stats.monthlyRecurringRevenue.toLocaleString()}`} 
+              icon={<BillingIcon className="w-5 h-5 text-red-600" />} 
+              change="+18.4% este mes"
+              changeType="increase"
+            />
+          </div>
+          <div className="flex-shrink-0 w-[240px] sm:w-auto snap-center">
+            <StatCard 
+              title="Barberías Registradas" 
+              value={stats.totalShops} 
+              icon={<ShopIcon className="w-5 h-5 text-red-600" />} 
+              change="+3 nuevos salones"
+              changeType="increase"
+            />
+          </div>
+          <div className="flex-shrink-0 w-[240px] sm:w-auto snap-center">
+            <StatCard 
+              title="Consultas de IA Totales" 
+              value={stats.totalPlatformAnalyses} 
+              icon={<ChatIcon className="w-5 h-5 text-red-600" />} 
+              change="+42% de uso en la red"
+              changeType="increase"
+            />
+          </div>
+          <div className="flex-shrink-0 w-[240px] sm:w-auto snap-center">
+            <StatCard 
+              title="Reservas Totales" 
+              value={stats.totalPlatformBookings} 
+              icon={<BookingsIcon className="w-5 h-5 text-red-600" />} 
+              change="+9.5% de efectividad"
+              changeType="increase"
+            />
+          </div>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex flex-wrap border-b border-slate-200 gap-1">
+        <div className="flex border-b border-slate-200 overflow-x-auto pb-px scrollbar-none -mx-6 px-6 sm:mx-0 sm:px-0 scroll-smooth snap-x gap-1">
           <button 
             onClick={() => setActiveTab('general')}
-            className={`flex items-center gap-2 px-5 py-3 text-xs font-black uppercase tracking-widest transition-all rounded-t-2xl border-t border-x ${
+            className={`flex items-center gap-2 px-5 py-3 text-xs font-black uppercase tracking-widest transition-all rounded-t-2xl border-t border-x flex-shrink-0 whitespace-nowrap snap-center ${
               activeTab === 'general' 
                 ? 'bg-white border-slate-200 text-red-600 border-b-transparent -mb-[1px]' 
                 : 'bg-transparent border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-100'
@@ -249,7 +257,7 @@ const AdminView: React.FC<AdminViewProps> = ({ currentUser, currentShop, booking
           </button>
           <button 
             onClick={() => setActiveTab('security')}
-            className={`flex items-center gap-2 px-5 py-3 text-xs font-black uppercase tracking-widest transition-all rounded-t-2xl border-t border-x ${
+            className={`flex items-center gap-2 px-5 py-3 text-xs font-black uppercase tracking-widest transition-all rounded-t-2xl border-t border-x flex-shrink-0 whitespace-nowrap snap-center ${
               activeTab === 'security' 
                 ? 'bg-white border-slate-200 text-red-600 border-b-transparent -mb-[1px]' 
                 : 'bg-transparent border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-100'
@@ -260,7 +268,7 @@ const AdminView: React.FC<AdminViewProps> = ({ currentUser, currentShop, booking
           </button>
           <button 
             onClick={() => setActiveTab('support')}
-            className={`flex items-center gap-2 px-5 py-3 text-xs font-black uppercase tracking-widest transition-all rounded-t-2xl border-t border-x ${
+            className={`flex items-center gap-2 px-5 py-3 text-xs font-black uppercase tracking-widest transition-all rounded-t-2xl border-t border-x flex-shrink-0 whitespace-nowrap snap-center ${
               activeTab === 'support' 
                 ? 'bg-white border-slate-200 text-red-600 border-b-transparent -mb-[1px]' 
                 : 'bg-transparent border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-100'
@@ -271,7 +279,7 @@ const AdminView: React.FC<AdminViewProps> = ({ currentUser, currentShop, booking
           </button>
           <button 
             onClick={() => setActiveTab('compliance')}
-            className={`flex items-center gap-2 px-5 py-3 text-xs font-black uppercase tracking-widest transition-all rounded-t-2xl border-t border-x ${
+            className={`flex items-center gap-2 px-5 py-3 text-xs font-black uppercase tracking-widest transition-all rounded-t-2xl border-t border-x flex-shrink-0 whitespace-nowrap snap-center ${
               activeTab === 'compliance' 
                 ? 'bg-white border-slate-200 text-red-600 border-b-transparent -mb-[1px]' 
                 : 'bg-transparent border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-100'
@@ -282,7 +290,7 @@ const AdminView: React.FC<AdminViewProps> = ({ currentUser, currentShop, booking
           </button>
           <button 
             onClick={() => setActiveTab('billing')}
-            className={`flex items-center gap-2 px-5 py-3 text-xs font-black uppercase tracking-widest transition-all rounded-t-2xl border-t border-x ${
+            className={`flex items-center gap-2 px-5 py-3 text-xs font-black uppercase tracking-widest transition-all rounded-t-2xl border-t border-x flex-shrink-0 whitespace-nowrap snap-center ${
               activeTab === 'billing' 
                 ? 'bg-white border-slate-200 text-red-600 border-b-transparent -mb-[1px]' 
                 : 'bg-transparent border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-100'
@@ -293,7 +301,7 @@ const AdminView: React.FC<AdminViewProps> = ({ currentUser, currentShop, booking
           </button>
           <button 
             onClick={() => setActiveTab('ai_metrics')}
-            className={`flex items-center gap-2 px-5 py-3 text-xs font-black uppercase tracking-widest transition-all rounded-t-2xl border-t border-x ${
+            className={`flex items-center gap-2 px-5 py-3 text-xs font-black uppercase tracking-widest transition-all rounded-t-2xl border-t border-x flex-shrink-0 whitespace-nowrap snap-center ${
               activeTab === 'ai_metrics' 
                 ? 'bg-white border-slate-200 text-red-600 border-b-transparent -mb-[1px]' 
                 : 'bg-transparent border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-100'
@@ -914,33 +922,41 @@ const AdminView: React.FC<AdminViewProps> = ({ currentUser, currentShop, booking
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard 
-          title="Análisis IA" 
-          value={stats.totalAnalyses} 
-          icon={<ChatIcon className="w-5 h-5 text-red-600" />} 
-          change="+12% de crecimiento"
-          changeType="increase"
-        />
-        <StatCard 
-          title="Reservas" 
-          value={stats.totalBookings} 
-          icon={<BookingsIcon className="w-5 h-5 text-red-600" />} 
-          change="+8% vs mes anterior"
-          changeType="increase"
-        />
-        <StatCard 
-          title="Top Servicio" 
-          value={cleanServiceName(stats.mostPopularService)} 
-          icon={<ShopIcon className="w-5 h-5 text-red-600" />}
-        />
-        <StatCard 
-          title="Ingresos Estimados" 
-          value={`$${stats.monthlyRevenue.toLocaleString()}`} 
-          icon={<BillingIcon className="w-5 h-5 text-red-600" />}
-          change="-2.5% de ajuste"
-          changeType="decrease"
-        />
+      <div className="flex overflow-x-auto pb-4 gap-6 scrollbar-none -mx-6 px-6 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:gap-6 scroll-smooth snap-x">
+        <div className="flex-shrink-0 w-[240px] sm:w-auto snap-center">
+          <StatCard 
+            title="Análisis IA" 
+            value={stats.totalAnalyses} 
+            icon={<ChatIcon className="w-5 h-5 text-red-600" />} 
+            change="+12% de crecimiento"
+            changeType="increase"
+          />
+        </div>
+        <div className="flex-shrink-0 w-[240px] sm:w-auto snap-center">
+          <StatCard 
+            title="Reservas" 
+            value={stats.totalBookings} 
+            icon={<BookingsIcon className="w-5 h-5 text-red-600" />} 
+            change="+8% vs mes anterior"
+            changeType="increase"
+          />
+        </div>
+        <div className="flex-shrink-0 w-[240px] sm:w-auto snap-center">
+          <StatCard 
+            title="Top Servicio" 
+            value={cleanServiceName(stats.mostPopularService)} 
+            icon={<ShopIcon className="w-5 h-5 text-red-600" />}
+          />
+        </div>
+        <div className="flex-shrink-0 w-[240px] sm:w-auto snap-center">
+          <StatCard 
+            title="Ingresos Estimados" 
+            value={`$${stats.monthlyRevenue.toLocaleString()}`} 
+            icon={<BillingIcon className="w-5 h-5 text-red-600" />}
+            change="-2.5% de ajuste"
+            changeType="decrease"
+          />
+        </div>
       </div>
       
       {/* Gráficos */}

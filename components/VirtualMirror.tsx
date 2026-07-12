@@ -266,18 +266,13 @@ const VirtualMirror: React.FC<VirtualMirrorProps> = (props) => {
                   )}
                 </div>
                 
-                {/* Antes (Original con Clip width) */}
-                <div 
-                  className="absolute inset-y-0 left-0 overflow-hidden pointer-events-none" 
-                  style={{ width: `${sliderPosition}%` }}
-                >
-                  <img 
-                    src={activeOriginalImage} 
-                    alt="Original" 
-                    className="absolute inset-0 object-cover max-w-none h-full"
-                    style={{ width: '382px' }} // fixed width of widget container aspect
-                  />
-                </div>
+                {/* Antes (Original) - clipped beautifully on any screen size */}
+                <img 
+                  src={activeOriginalImage} 
+                  alt="Original" 
+                  className="absolute inset-0 w-full h-full object-cover pointer-events-none z-10"
+                  style={{ clipPath: `polygon(0 0, ${sliderPosition}% 0, ${sliderPosition}% 100%, 0 100%)` }}
+                />
 
                 {/* Range Input invisible overlay but fully draggable */}
                 <input 
@@ -340,12 +335,12 @@ const VirtualMirror: React.FC<VirtualMirrorProps> = (props) => {
             )}
             
             {/* Grid de Peinados */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="flex overflow-x-auto pb-4 gap-4 scrollbar-none -mx-6 px-6 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-4 sm:gap-4 scroll-smooth snap-x">
               {props.styleNames.map((style, i) => {
                 const imgUrl = props.generatedImages[startIndex + i];
                 const isFav = favorites.some(f => f.styleName === style);
                 return (
-                  <div key={i} className="flex flex-col space-y-2">
+                  <div key={i} className="flex flex-col space-y-2 flex-shrink-0 w-[240px] sm:w-auto snap-center">
                     <ImageCell 
                       image={imgUrl} 
                       styleName={style} 

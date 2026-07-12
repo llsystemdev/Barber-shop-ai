@@ -140,14 +140,14 @@ const ChatView: React.FC<ChatViewProps> = ({ messages, isAiLoading, onSendMessag
 
       {/* Quick contextual chips at bottom */}
       {messages.length > 0 && (
-        <div className="px-4 py-2 bg-slate-50 border-t border-slate-100 overflow-x-auto">
+        <div className="px-4 py-2 bg-slate-50 border-t border-slate-100 overflow-x-auto scrollbar-none snap-x">
           <div className="max-w-3xl mx-auto flex space-x-2 whitespace-nowrap py-1">
             {conversationChips.map((chip, idx) => (
               <button
                 key={idx}
                 disabled={isAiLoading || appState === 'processing'}
                 onClick={() => onSendMessage(chip)}
-                className="bg-white hover:bg-red-50 hover:text-red-600 border border-slate-200 hover:border-red-600 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider text-slate-500 transition-all duration-300"
+                className="bg-white hover:bg-red-50 hover:text-red-600 border border-slate-200 hover:border-red-600 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider text-slate-500 transition-all duration-300 flex-shrink-0 snap-center"
               >
                 💬 {chip}
               </button>

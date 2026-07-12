@@ -89,7 +89,7 @@ const BookingsListView: React.FC<BookingsListViewProps> = ({ bookings, onNavigat
 
         {/* Filtros Premium */}
         {activeBookings.length > 0 && (
-          <div className="flex border-b border-slate-200/80 space-x-1">
+          <div className="flex border-b border-slate-200/80 overflow-x-auto pb-px scrollbar-none -mx-6 px-6 md:mx-0 md:px-0 scroll-smooth snap-x">
             {[
               { id: 'upcoming', label: 'Próximas Citas' },
               { id: 'past', label: 'Historial / Pasados' },
@@ -98,7 +98,7 @@ const BookingsListView: React.FC<BookingsListViewProps> = ({ bookings, onNavigat
               <button
                 key={f.id}
                 onClick={() => setFilter(f.id as any)}
-                className={`px-4 py-2.5 border-b-2 font-black text-[10px] uppercase tracking-widest transition-all ${filter === f.id ? 'border-red-600 text-red-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                className={`px-4 py-2.5 border-b-2 font-black text-[10px] uppercase tracking-widest transition-all flex-shrink-0 whitespace-nowrap snap-center ${filter === f.id ? 'border-red-600 text-red-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
               >
                 {f.label}
               </button>
