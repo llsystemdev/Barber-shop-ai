@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { BarberShop, Booking } from '../types';
+import { BarberShop, Booking, Barber } from '../types';
 import { getAvailableSlots, sendBookingConfirmationEmail } from '../services/geminiService';
 import { saveBooking } from '../services/barberShopService';
 
@@ -11,21 +11,25 @@ interface BookingViewProps {
   onBookingConfirmed: (bookingDetails: Omit<Booking, 'id'>) => void;
 }
 
-const teamMembers = [
-  { id: '1', name: 'Carlos Mendoza', role: 'Master Barber', rating: '4.9', avatar: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=150', specialty: 'Fade y Estilado de Barba' },
-  { id: '2', name: 'Mateo Rossi', role: 'Senior Stylist', rating: '4.8', avatar: 'https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg?auto=compress&cs=tinysrgb&w=150', specialty: 'Corte Clásico y Tijera' },
-  { id: '3', name: 'Javier Sanabria', role: 'Barber & Colorist', rating: '5.0', avatar: 'https://images.pexels.com/photos/1212979/pexels-photo-1212979.jpeg?auto=compress&cs=tinysrgb&w=150', specialty: 'Coloración y Diseños IA' },
-];
-
 const BookingView: React.FC<BookingViewProps> = ({ shop, userId, userEmail, onBookingConfirmed }) => {
   const [step, setStep] = useState(1);
   const [selectedService, setSelectedService] = useState(shop.services[0]?.name || "Corte Clásico");
-  const [selectedBarber, setSelectedBarber] = useState(teamMembers[0]);
+  const [selectedBarber, setSelectedBarber] = useState<Barber | null>(
+    shop.barbers && shop.barbers.length > 0 ? shop.barbers[0] : null
+  );
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (shop.barbers && shop.barbers.length > 0) {
+      setSelectedBarber(shop.barbers[0]);
+    } else {
+      setSelectedBarber(null);
+    }
+  }, [shop.barbers]);
 
   const handleFindSlots = async () => {
     setIsLoading(true);
@@ -73,7 +77,7 @@ const BookingView: React.FC<BookingViewProps> = ({ shop, userId, userEmail, onBo
           date: selectedDate,
           time: selectedSlot,
           userId: userId,
-          barberName: selectedBarber.name // Optional parameter added elegantly
+          barberName: selectedBarber?.name || "Sin estilista"
         };
         
         const { error: dbError } = await saveBooking(bookingData);
@@ -181,31 +185,45 @@ const BookingView: React.FC<BookingViewProps> = ({ shop, userId, userEmail, onBo
               <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest border-b border-slate-100 pb-3 mb-4">
                 Paso 2: Selecciona tu Estilista Favorito
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {teamMembers.map((member) => (
-                  <button
-                    key={member.id}
-                    onClick={() => setSelectedBarber(member)}
-                    className={`w-full p-6 border-2 rounded-3xl transition-all duration-300 text-center flex flex-col items-center justify-between ${selectedBarber.id === member.id ? 'border-red-600 bg-red-50/20' : 'border-slate-100 bg-white hover:border-slate-300 hover:bg-slate-50'}`}
-                  >
-                    <img src={member.avatar} alt={member.name} className="w-16 h-16 rounded-2xl object-cover border border-slate-100 mb-4" />
-                    <div>
-                      <p className="text-sm font-black text-slate-900 uppercase tracking-tight">{member.name}</p>
-                      <p className="text-[10px] text-red-600 font-black uppercase tracking-widest mt-1">{member.role}</p>
-                      <p className="text-[10px] text-slate-400 font-semibold mt-2">{member.specialty}</p>
-                    </div>
-                    <div className="mt-4 flex items-center justify-center space-x-1 text-xs font-black text-amber-500">
-                      <span>⭐</span> <span>{member.rating}</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
+              {!shop.barbers || shop.barbers.length === 0 ? (
+                <div className="py-12 px-6 border border-dashed border-slate-200 rounded-3xl text-center space-y-3 bg-slate-50/50 max-w-md mx-auto">
+                  <div className="text-3xl">💈</div>
+                  <h4 className="text-sm font-black text-slate-900 uppercase tracking-wider">No hay estilistas disponibles</h4>
+                  <p className="text-xs text-slate-500 font-bold leading-relaxed">
+                    Esta barbería aún no tiene estilistas ni barberos asignados. Comunícate directamente con el salón para más detalles o vuelve a intentarlo más tarde.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {shop.barbers.map((member, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setSelectedBarber(member)}
+                      className={`w-full p-6 border-2 rounded-3xl transition-all duration-300 text-center flex flex-col items-center justify-between ${selectedBarber?.name === member.name ? 'border-red-600 bg-red-50/20' : 'border-slate-100 bg-white hover:border-slate-300 hover:bg-slate-50'}`}
+                    >
+                      <img src={member.imageUrl || 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=150'} alt={member.name} className="w-16 h-16 rounded-2xl object-cover border border-slate-100 mb-4" />
+                      <div>
+                        <p className="text-sm font-black text-slate-900 uppercase tracking-tight">{member.name}</p>
+                        <p className="text-[10px] text-red-600 font-black uppercase tracking-widest mt-1">Estilista Experto</p>
+                        <p className="text-[10px] text-slate-400 font-semibold mt-2">{member.specialty || 'General'}</p>
+                      </div>
+                      <div className="mt-4 flex items-center justify-center space-x-1 text-xs font-black text-amber-500">
+                        <span>⭐</span> <span>5.0</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
               
               <div className="pt-6 border-t border-slate-100 flex gap-4">
                 <button onClick={() => setStep(1)} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black py-4 rounded-2xl text-xs uppercase tracking-widest transition-all">
                   Atrás
                 </button>
-                <button onClick={handleFindSlots} className="flex-1 bg-red-600 hover:bg-red-700 text-white font-black py-4 rounded-2xl text-xs uppercase tracking-widest transition-all shadow-lg shadow-red-600/20">
+                <button 
+                  onClick={handleFindSlots} 
+                  disabled={!selectedBarber}
+                  className={`flex-1 font-black py-4 rounded-2xl text-xs uppercase tracking-widest transition-all shadow-lg ${!selectedBarber ? 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none border border-slate-200/50' : 'bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-600/20'}`}
+                >
                   Continuar
                 </button>
               </div>

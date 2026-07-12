@@ -39,5 +39,10 @@ service cloud.firestore {
     match /userConsents/{consentId} {
       allow read, write: if true;
     }
+    
+    // Colección de Artículos de Blog
+    match /blogPosts/{postId} {
+      allow read, write: if true;
+    }
   }
 }

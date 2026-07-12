@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { blogService } from '../services/blogService';
+import { blogService, generateSlug } from '../services/blogService';
 import { BlogPost, User, BarberShop } from '../types';
 import { BookOpen, Calendar, User as UserIcon, Clock, Share2, ArrowLeft, Plus, Edit, Trash2, Check, Eye, MessageSquare, Tag, FileText } from 'lucide-react';
 
