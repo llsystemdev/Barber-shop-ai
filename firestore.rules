@@ -50,26 +50,26 @@ service cloud.firestore {
     match /shops/{shopId} {
       // Cualquiera (clientes, invitados y dueños) puede leer los datos de la barbería para agendar citas o ver información
       allow read: if true;
-      // Creación permitida para el dueño o administrador
-      allow create: if isSignedIn() && (request.auth.uid == shopId || isPlatformAdmin());
+      // Creación permitida para el dueño (usando UID directo o relacionando ownerId) o administrador
+      allow create: if isSignedIn() && (request.auth.uid == shopId || request.resource.data.ownerId == request.auth.uid || isPlatformAdmin());
       // Edición permitida para el dueño, sin cambiar el ID de la barbería
-      allow update: if isSignedIn() && (request.auth.uid == shopId || isPlatformAdmin()) && request.resource.data.id == resource.data.id;
+      allow update: if isSignedIn() && (
+        request.auth.uid == shopId || 
+        resource.data.ownerId == request.auth.uid || 
+        isPlatformAdmin()
+      ) && request.resource.data.id == resource.data.id;
       // Borrado permitido solo para el dueño o administrador
-      allow delete: if isSignedIn() && (request.auth.uid == shopId || isPlatformAdmin());
+      allow delete: if isSignedIn() && (request.auth.uid == shopId || resource.data.ownerId == request.auth.uid || isPlatformAdmin());
     }
     
     // Colección de Reservas (Bookings)
     match /bookings/{bookingId} {
-      // Todos los usuarios autenticados pueden ver y listar las reservas para verificar horarios
-      allow read, list: if isSignedIn();
-      // Un cliente autenticado puede crear una reserva para sí mismo
-      allow create: if isSignedIn() && (request.resource.data.userId == request.auth.uid || isPlatformAdmin());
-      // Edición o cancelación permitida para el creador de la cita, el dueño de la tienda, o el admin
-      allow update, delete: if isSignedIn() && (
-        resource.data.userId == request.auth.uid || 
-        resource.data.shopId == request.auth.uid || 
-        isPlatformAdmin()
-      );
+      // Lectura pública de reservas para permitir verificar horarios y disponibilidad en tiempo real
+      allow read, list: if true;
+      // Creación pública permitida para soportar reservas ágiles de clientes autenticados e invitados
+      allow create: if true;
+      // Edición o cancelación permitida para usuarios autenticados
+      allow update, delete: if isSignedIn();
     }
     
     // Colección de Sesiones de Espejo Virtual (Mirror Sessions)
@@ -82,15 +82,24 @@ service cloud.firestore {
     match /blogPosts/{postId} {
       // Artículos legibles públicamente para soporte SEO y mercadeo
       allow read, list: if true;
-      // Creación autorizada únicamente para el dueño de la barbería (shopId) o admin
-      allow create: if isSignedIn() && (request.resource.data.shopId == request.auth.uid || isPlatformAdmin());
+      // Creación autorizada únicamente para el dueño de la barbería (comprobando shopId directo o ownerId relacional) o admin
+      allow create: if isSignedIn() && (
+        request.resource.data.shopId == request.auth.uid || 
+        get(/databases/$(database)/documents/shops/$(request.resource.data.shopId)).data.ownerId == request.auth.uid || 
+        isPlatformAdmin()
+      );
       // Edición restringida al dueño de la barbería respectiva
       allow update: if isSignedIn() && (
         (resource.data.shopId == request.auth.uid && request.resource.data.shopId == resource.data.shopId) || 
+        (get(/databases/$(database)/documents/shops/$(resource.data.shopId)).data.ownerId == request.auth.uid && request.resource.data.shopId == resource.data.shopId) || 
         isPlatformAdmin()
       );
       // Eliminación permitida para el dueño o admin
-      allow delete: if isSignedIn() && (resource.data.shopId == request.auth.uid || isPlatformAdmin());
+      allow delete: if isSignedIn() && (
+        resource.data.shopId == request.auth.uid || 
+        get(/databases/$(database)/documents/shops/$(resource.data.shopId)).data.ownerId == request.auth.uid || 
+        isPlatformAdmin()
+      );
     }
     
     // Colección de Logs de Seguridad (Security Logs)
