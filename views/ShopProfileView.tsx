@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { BarberShop, Service, Barber } from '../types';
 import { EditIcon } from '../assets/icons';
 import { uploadShopImage, updateShop } from '../services/barberShopService';
+import { convertHeicToJpeg } from '../services/heicConverter';
 
 const DAYS_OF_WEEK = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
@@ -158,14 +159,18 @@ const ShopProfileView: React.FC<ShopProfileViewProps> = ({ shop, onUpdateProfile
     if (!file) return;
     
     setIsUploading(true);
-    setUploadProgress(20);
+    setStatusMsg("Preparando imagen...");
+    setUploadProgress(10);
     
     try {
+      const processedFile = await convertHeicToJpeg(file, (msg) => setStatusMsg(msg));
+      
+      setUploadProgress(30);
       const timer = setInterval(() => {
         setUploadProgress(prev => (prev < 90 ? prev + 10 : prev));
       }, 200);
 
-      const url = await uploadShopImage(file, shop.id, 'galery');
+      const url = await uploadShopImage(processedFile, shop.id, 'galery');
       clearInterval(timer);
       setUploadProgress(100);
       
@@ -189,10 +194,14 @@ const ShopProfileView: React.FC<ShopProfileViewProps> = ({ shop, onUpdateProfile
     if (!file || uploadTargetBarberIdx === null) return;
 
     setIsUploading(true);
-    setUploadProgress(40);
+    setStatusMsg("Preparando imagen...");
+    setUploadProgress(20);
 
     try {
-      const url = await uploadShopImage(file, shop.id, 'barbers');
+      const processedFile = await convertHeicToJpeg(file, (msg) => setStatusMsg(msg));
+      setUploadProgress(50);
+      
+      const url = await uploadShopImage(processedFile, shop.id, 'barbers');
       const newBarbers = [...editableShop.barbers];
       newBarbers[uploadTargetBarberIdx].imageUrl = url;
       
@@ -380,7 +389,7 @@ const ShopProfileView: React.FC<ShopProfileViewProps> = ({ shop, onUpdateProfile
         {/* Input oculto para subir avatares de barberos */}
         <input 
           type="file" 
-          accept="image/*" 
+          accept=".heic,.heif,image/heic,image/heif,image/jpeg,image/png,image/webp" 
           className="hidden" 
           ref={barberInputRef} 
           onChange={handleBarberImageUpload} 
@@ -478,7 +487,7 @@ const ShopProfileView: React.FC<ShopProfileViewProps> = ({ shop, onUpdateProfile
                         onClick={() => galleryInputRef.current?.click()}
                         className="aspect-[3/4] bg-white border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center hover:border-red-600 hover:bg-red-50/20 transition-all text-center p-4"
                       >
-                        <input type="file" accept="image/*" className="hidden" ref={galleryInputRef} onChange={handleGalleryUpload} />
+                        <input type="file" accept=".heic,.heif,image/heic,image/heif,image/jpeg,image/png,image/webp" className="hidden" ref={galleryInputRef} onChange={handleGalleryUpload} />
                         <span className="text-2xl mb-2">📸</span>
                         <span className="text-[9px] font-black uppercase text-slate-500 tracking-wider">Añadir Foto</span>
                       </button>

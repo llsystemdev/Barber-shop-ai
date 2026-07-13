@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { convertHeicToJpeg } from '../services/heicConverter';
 
 // Modal Component defined inside this file
 const ImageSourceModal: React.FC<{
@@ -83,24 +84,41 @@ interface PhotoSlotProps {
 const PhotoSlot: React.FC<PhotoSlotProps> = ({ label, onFileSelect, icon, captureMode = 'user' }) => {
   const [preview, setPreview] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isConverting, setIsConverting] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreview(reader.result as string);
-        onFileSelect(file);
-      };
-      reader.readAsDataURL(file);
+      setIsConverting(true);
+      try {
+        const processedFile = await convertHeicToJpeg(file);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setPreview(reader.result as string);
+          onFileSelect(processedFile);
+          setIsConverting(false);
+        };
+        reader.readAsDataURL(processedFile);
+      } catch (err) {
+        console.error("Error processing file in slot:", err);
+        // Fallback to original
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setPreview(reader.result as string);
+          onFileSelect(file);
+          setIsConverting(false);
+        };
+        reader.readAsDataURL(file);
+      }
     }
     // Reset the input value to allow selecting the same file again
     e.target.value = '';
   };
 
   const handleSlotClick = () => {
+    if (isConverting) return;
     setIsModalOpen(true);
   };
   
@@ -129,13 +147,13 @@ const PhotoSlot: React.FC<PhotoSlotProps> = ({ label, onFileSelect, icon, captur
   return (
     <>
       <div 
-          className="relative w-full aspect-[3/4] bg-gray-200 rounded-lg flex flex-col items-center justify-center text-center p-4 border-2 border-dashed border-gray-400 hover:border-red-500 hover:bg-gray-100 transition-all cursor-pointer"
+          className="relative w-full aspect-[3/4] bg-gray-200 rounded-lg flex flex-col items-center justify-center text-center p-4 border-2 border-dashed border-gray-400 hover:border-red-500 hover:bg-gray-100 transition-all cursor-pointer overflow-hidden"
           onClick={handleSlotClick}
       >
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept=".heic,.heif,image/heic,image/heif,image/jpeg,image/png,image/webp"
           onChange={handleFileChange}
           className="hidden"
         />
@@ -147,6 +165,13 @@ const PhotoSlot: React.FC<PhotoSlotProps> = ({ label, onFileSelect, icon, captur
             <p className="font-semibold text-gray-700">{label}</p>
             <p className="text-sm text-gray-500">Toca para elegir una foto</p>
           </>
+        )}
+
+        {isConverting && (
+          <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center rounded-lg z-10 p-2">
+            <div className="w-8 h-8 border-4 border-red-500 border-t-transparent rounded-full animate-spin mb-2"></div>
+            <p className="text-[10px] font-black text-white uppercase tracking-wider animate-pulse text-center">Convirtiendo fotografía...</p>
+          </div>
         )}
       </div>
        <ImageSourceModal 
