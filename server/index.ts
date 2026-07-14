@@ -638,6 +638,7 @@ async function startServer() {
             }
 
             console.log('[STEP 10] Resultado generado con éxito en /api/generate-image');
+            console.log('[AUDIT LOG 1 - GEMINI SUCCESS]', generatedImageBase64 ? (generatedImageBase64.substring(0, 100) + '...') : 'null');
             res.json({ image: generatedImageBase64 });
         } catch (error: any) {
             console.warn('[Hair Simulation AI Fallback] Image generation failed, returning high-fidelity styled image:', error.message || error);
@@ -657,6 +658,7 @@ async function startServer() {
             console.log(`[Hair Simulation AI] Generating fallback SVG vector graphic for "${matchedName}" with accent "${hexColor}"`);
             
             const svgData = getFallbackSvgDataUri(matchedName, `Vista ${angleLabel}`, hexColor);
+            console.log('[AUDIT LOG 1 - GEMINI FALLBACK TRIGGERED]', svgData ? (svgData.substring(0, 100) + '...') : 'null');
             res.json({ image: svgData, isOfflineFallback: true });
         }
     });

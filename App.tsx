@@ -615,6 +615,7 @@ const App: React.FC = () => {
         console.log(`[STEP 6] Solicitando generación de imagen (slot ${index}) para estilo: ${style}, ángulo: ${angle}`);
 
         const result = await generateStyledImage(targetImage, 'image/jpeg', style, angle, lighting, color, highlights, masterReference);
+        console.log('[AUDIT LOG 3 - RECEIVE RESULT IN TRIGGER]', { index, result: result ? result.substring(0, 100) + '...' : 'null' });
         
         if (sessionId && sessionId !== currentSessionIdRef.current) {
             console.log(`[Simulation AI] Discarding generation result for slot ${index} due to session ID mismatch.`);
@@ -624,6 +625,7 @@ const App: React.FC = () => {
         setGeneratedImages(prev => {
             const next = [...prev];
             next[index] = result;
+            console.log(`[AUDIT LOG 3 - REACT STATE UPDATE] Slot ${index} updating to:`, result ? result.substring(0, 100) + '...' : 'null');
             // Persist generated image to Firestore in the background using debounced saver
             saveCurrentMirrorSessionDebounced(next, frontImage, sideImage, suggestedStyles, analysisResult);
             return next;

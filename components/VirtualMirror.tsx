@@ -49,6 +49,7 @@ const ImageCell: React.FC<{
   hairColor: string | undefined,
   highlights: string | undefined
 }> = ({ image, styleName, isLoading, isFreemium, isFavorite, watermarkText, onClick, onRegenerate, onToggleFavorite, lighting, hairColor, highlights }) => {
+  console.log('[AUDIT LOG 4 - COMPONENT INPUT]', { styleName, hasImage: !!image, imagePreview: image ? image.substring(0, 100) + '...' : 'null', isLoading });
   // Define CSS filters based on lighting and colors
   let filterClass = "";
   if (lighting === 'Estudio') {
@@ -74,11 +75,16 @@ const ImageCell: React.FC<{
         {isLoading && <Loader text="Analizando..." />}
         {image ? (
           <div className="relative w-full h-full">
-            <img 
-              src={image} 
-              alt={styleName} 
-              className={`w-full h-full object-cover transition-all duration-700 group-hover:scale-105 ${filterClass}`} 
-            />
+            {(() => {
+              console.log('[AUDIT LOG 5 - IMG TAG RENDER]', { styleName, src: image ? image.substring(0, 100) + '...' : 'null' });
+              return (
+                <img 
+                  src={image} 
+                  alt={styleName} 
+                  className={`w-full h-full object-cover transition-all duration-700 group-hover:scale-105 ${filterClass}`} 
+                />
+              );
+            })()}
             {/* Base Hair Color Overlay */}
             {hairColor && hairColor !== 'natural' && hairColor !== '#ffffff' && hairColor !== '#1a1a1a' && (
               <div 

@@ -236,6 +236,7 @@ export const saveMirrorSession = async (userId: string, data: Omit<MirrorSession
       createdAt: new Date().toISOString()
     });
     console.log(`[Mirror Cache] Session saved to Firestore for user: ${userId}`);
+    console.log('[AUDIT LOG 2 - FIRESTORE SAVE]', data.generatedImages ? data.generatedImages.map((img, idx) => img ? `Index ${idx}: ` + img.substring(0, 50) + '...' : `Index ${idx}: null`) : 'null');
   } catch (error) {
     console.error('Error saving mirror session:', error);
   }
@@ -247,7 +248,9 @@ export const getMirrorSession = async (userId: string): Promise<MirrorSessionDat
     const docSnap = await getDoc(sessionDocRef);
     if (docSnap.exists()) {
       console.log(`[Mirror Cache] Session loaded from Firestore for user: ${userId}`);
-      return docSnap.data() as MirrorSessionData;
+      const sessionData = docSnap.data() as MirrorSessionData;
+      console.log('[AUDIT LOG 2 - FIRESTORE LOAD]', sessionData.generatedImages ? sessionData.generatedImages.map((img, idx) => img ? `Index ${idx}: ` + img.substring(0, 50) + '...' : `Index ${idx}: null`) : 'no generated images');
+      return sessionData;
     }
     return null;
   } catch (error) {
