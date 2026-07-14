@@ -103,13 +103,26 @@ function getStripe(): Stripe {
     return stripeClient;
 }
 
+// Helper to map and sanitize non-standard MIME types to officially supported ones
+function getStandardMimeType(mimeType: string): string {
+    if (!mimeType) return 'image/jpeg';
+    const normalized = mimeType.toLowerCase().trim();
+    if (normalized === 'image/png') return 'image/png';
+    if (normalized === 'image/webp') return 'image/webp';
+    if (normalized === 'image/heic') return 'image/heic';
+    if (normalized === 'image/heif') return 'image/heif';
+    if (normalized === 'image/jpeg' || normalized === 'image/jpg' || normalized === 'image/jfif' || normalized === 'image/pjpeg') return 'image/jpeg';
+    if (normalized.startsWith('image/')) return 'image/jpeg';
+    return 'image/jpeg';
+}
+
 // Helper to fetch image from URL and return base64 with mimeType
 async function fetchImageAsBase64(url: string): Promise<{ data: string; mimeType: string }> {
     try {
         if (url.startsWith('data:')) {
             const match = url.match(/^data:([^;]+);base64,(.+)$/);
             if (match) {
-                return { mimeType: match[1], data: match[2] };
+                return { mimeType: getStandardMimeType(match[1]), data: match[2] };
             }
         }
         
@@ -118,7 +131,7 @@ async function fetchImageAsBase64(url: string): Promise<{ data: string; mimeType
             throw new Error(`Failed to download image from URL: ${res.statusText}`);
         }
         const arrayBuffer = await res.arrayBuffer();
-        const mimeType = res.headers.get('content-type') || 'image/jpeg';
+        const mimeType = getStandardMimeType(res.headers.get('content-type') || 'image/jpeg');
         const data = Buffer.from(arrayBuffer).toString('base64');
         return { data, mimeType };
     } catch (err: any) {
@@ -267,11 +280,11 @@ async function startServer() {
             if (frontImage?.data && sideImage?.data) {
                 frontData = {
                     data: frontImage.data.includes(',') ? frontImage.data.split(',')[1] : frontImage.data,
-                    mimeType: frontImage.mimeType || 'image/jpeg'
+                    mimeType: getStandardMimeType(frontImage.mimeType || 'image/jpeg')
                 };
                 sideData = {
                     data: sideImage.data.includes(',') ? sideImage.data.split(',')[1] : sideImage.data,
-                    mimeType: sideImage.mimeType || 'image/jpeg'
+                    mimeType: getStandardMimeType(sideImage.mimeType || 'image/jpeg')
                 };
             }
 
@@ -367,7 +380,13 @@ async function startServer() {
                 },
             });
 
-            const parsedResult = JSON.parse(response.text || '{}');
+            let cleanedText = response.text || '{}';
+            cleanedText = cleanedText.trim();
+            if (cleanedText.startsWith('```')) {
+                cleanedText = cleanedText.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/\s*```$/, '');
+            }
+            cleanedText = cleanedText.trim();
+            const parsedResult = JSON.parse(cleanedText);
             
             // Backward compatibility properties for UI
             parsedResult.styles = parsedResult.recommendedCuts || [];
@@ -376,7 +395,10 @@ async function startServer() {
 
             res.json(parsedResult);
         } catch (error: any) {
-            console.warn('[Visagismo AI Fallback] Gemini API failed, using high-fidelity offline fallback analysis:', error.message || error);
+            console.error('[Visagismo AI Error] Gemini API or parse failed:', error);
+            if (error.stack) {
+                console.error(error.stack);
+            }
             const fallbackResult = {
                 faceShape: "Rostro Diamante / Ovalado",
                 symmetry: "Excelente simetría facial con pómulos bien definidos y proporciones equilibradas.",
@@ -430,7 +452,7 @@ async function startServer() {
                     imagePart = { inlineData: { data: downloaded.data, mimeType: downloaded.mimeType } };
                 } else {
                     const base64Clean = image.data.includes(',') ? image.data.split(',')[1] : image.data;
-                    imagePart = { inlineData: { data: base64Clean, mimeType: image.mimeType || 'image/jpeg' } };
+                    imagePart = { inlineData: { data: base64Clean, mimeType: getStandardMimeType(image.mimeType || 'image/jpeg') } };
                 }
             } else {
                 return res.status(400).json({ error: "Falta la imagen de origen para realizar la simulación." });
