@@ -103,6 +103,51 @@ const App: React.FC = () => {
 
   const unsubscribeBookingsRef = useRef<(() => void) | null>(null);
   const lastHandledUserIdRef = useRef<string | null>(null);
+  const currentSessionIdRef = useRef<string | null>(null);
+  const saveTimeoutRef = useRef<any>(null);
+
+  const clearMirrorState = () => {
+    console.log('[Mirror State] Clearing virtual mirror state to guarantee no session mixing...');
+    setFrontImage(null);
+    setSideImage(null);
+    setFrontImageBase64(null);
+    setSideImageBase64(null);
+    setSuggestedStyles([]);
+    setAnalysisResult(null);
+    setGeneratedImages(new Array(12).fill(null));
+    setIsGeneratingImages(new Array(12).fill(false));
+    setMirrorState('initial');
+    setIsMirrorOffline(false);
+  };
+
+  const saveCurrentMirrorSessionDebounced = (
+      updatedImages: (string | null)[],
+      currentFront: string | null,
+      currentSide: string | null,
+      currentStyles: string[],
+      currentAnalysis: string | null
+  ) => {
+      if (!currentUser || currentUser.id.startsWith('guest_')) return;
+      
+      if (saveTimeoutRef.current) {
+          clearTimeout(saveTimeoutRef.current);
+      }
+      
+      saveTimeoutRef.current = setTimeout(async () => {
+          try {
+              console.log(`[Mirror Cache] Debounced save to Firestore triggered for user: ${currentUser.id}`);
+              await saveMirrorSession(currentUser.id, {
+                  frontImage: currentFront,
+                  sideImage: currentSide,
+                  suggestedStyles: currentStyles,
+                  analysisResult: currentAnalysis,
+                  generatedImages: updatedImages
+              });
+          } catch (err) {
+              console.error('[Mirror Cache] Failed to save debounced session:', err);
+          }
+      }, 2000); // 2 second debounce to prevent rapid concurrent Firestore writes
+  };
 
   const handleStartGuestMode = () => {
     const guestUser: AppUser = {
@@ -113,6 +158,7 @@ const App: React.FC = () => {
       isGuest: true,
       shopId: shops[0]?.id || 'default_shop'
     };
+    currentSessionIdRef.current = `guest_${Date.now()}`;
     setCurrentUser(guestUser);
     setActiveView('mirror');
     setScreen('app');
@@ -133,12 +179,15 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const restoreMirrorSession = async () => {
+      clearMirrorState();
+      
       if (currentUser && !currentUser.id.startsWith('guest_')) {
-        console.log('[Mirror Cache] Checking for cached mirror session...');
+        console.log('[Mirror Cache] Checking for cached mirror session for:', currentUser.id);
         try {
           const cached = await getMirrorSession(currentUser.id);
           if (cached) {
             console.log('[Mirror Cache] Restored cached session:', cached);
+            currentSessionIdRef.current = `restored_${Date.now()}`;
             setFrontImage(cached.frontImage);
             setSideImage(cached.sideImage);
             setSuggestedStyles(cached.suggestedStyles);
@@ -377,6 +426,10 @@ const App: React.FC = () => {
               return;
           }
       }
+
+      const sessionId = Date.now().toString();
+      currentSessionIdRef.current = sessionId;
+
       setMirrorState('processing');
       setAnalysisError(null);
       try {
@@ -410,6 +463,12 @@ const App: React.FC = () => {
           console.log('[Visagismo AI] Subiendo foto de perfil a Firebase Storage...');
           const sideUrl = await uploadShopImage(compressedSide, currentShop.id, 'galery');
           
+          // Double check session ID before saving image URLs to state
+          if (sessionId !== currentSessionIdRef.current) {
+              console.log('[Visagismo AI] Discarding state updates because a newer session has been started.');
+              return;
+          }
+
           setFrontImage(frontUrl);
           setSideImage(sideUrl);
 
@@ -422,6 +481,11 @@ const App: React.FC = () => {
               frontBase64,
               sideBase64
           );
+
+          if (sessionId !== currentSessionIdRef.current) {
+              console.log('[Visagismo AI] Discarding analysis result because a newer session has been started.');
+              return;
+          }
 
           setSuggestedStyles(analysis.styles);
           setAnalysisResult(analysis.finalRecommendation);
@@ -458,8 +522,13 @@ const App: React.FC = () => {
                   analysis.styles[i], 
                   'Frente', 
                   'Natural', 
-                  frontUrl
+                  frontUrl,
+                  undefined,
+                  undefined,
+                  undefined,
+                  sessionId
               ).then(async (frontResult) => {
+                  if (sessionId !== currentSessionIdRef.current) return;
                   if (frontResult) {
                       // Generate Profile (Perfil) view of style i using Frente as masterReference
                       await triggerImageGeneration(
@@ -470,7 +539,8 @@ const App: React.FC = () => {
                           sideUrl,
                           undefined,
                           undefined,
-                          frontResult
+                          frontResult,
+                          sessionId
                       );
                       // Generate 3/4 (Tres Cuartos) view of style i using Frente as masterReference
                       await triggerImageGeneration(
@@ -481,12 +551,13 @@ const App: React.FC = () => {
                           frontUrl,
                           undefined,
                           undefined,
-                          frontResult
+                          frontResult,
+                          sessionId
                       );
                   } else {
                       // Fallback if Frente generation fails, generate profile and threeQuarter without master reference
-                      triggerImageGeneration(4 + i, analysis.styles[i], 'Perfil', 'Natural', sideUrl);
-                      triggerImageGeneration(8 + i, analysis.styles[i], 'Tres Cuartos', 'Natural', frontUrl);
+                      triggerImageGeneration(4 + i, analysis.styles[i], 'Perfil', 'Natural', sideUrl, undefined, undefined, undefined, sessionId);
+                      triggerImageGeneration(8 + i, analysis.styles[i], 'Tres Cuartos', 'Natural', frontUrl, undefined, undefined, undefined, sessionId);
                   }
               });
               // Small stagger offset to prevent simultaneous network bottlenecking
@@ -495,24 +566,10 @@ const App: React.FC = () => {
           
       } catch (e) {
           console.error('[Visagismo Error]', e);
-          setMirrorState('initial');
-          setAnalysisError("No fue posible completar el análisis. Inténtalo nuevamente.");
-      }
-  };
-
-  const saveCurrentMirrorSession = async (updatedImages?: (string | null)[]) => {
-      if (!currentUser || currentUser.id.startsWith('guest_')) return;
-      try {
-          const imagesToSave = updatedImages || generatedImages;
-          await saveMirrorSession(currentUser.id, {
-              frontImage,
-              sideImage,
-              suggestedStyles,
-              analysisResult,
-              generatedImages: imagesToSave
-          });
-      } catch (err) {
-          console.error('[Mirror Cache] Failed to save session:', err);
+          if (sessionId === currentSessionIdRef.current) {
+              setMirrorState('initial');
+              setAnalysisError("No fue posible completar el análisis. Inténtalo nuevamente.");
+          }
       }
   };
 
@@ -524,8 +581,14 @@ const App: React.FC = () => {
     imageOverride?: string, 
     color?: string, 
     highlights?: string,
-    masterReferenceOverride?: string
+    masterReferenceOverride?: string,
+    sessionId?: string
   ): Promise<string | null> => {
+    if (sessionId && sessionId !== currentSessionIdRef.current) {
+        console.log(`[Simulation AI] Discarding generation trigger for slot ${index} due to session ID mismatch.`);
+        return null;
+    }
+
     setIsGeneratingImages(prev => {
         const next = [...prev];
         next[index] = true;
@@ -553,11 +616,16 @@ const App: React.FC = () => {
 
         const result = await generateStyledImage(targetImage, 'image/jpeg', style, angle, lighting, color, highlights, masterReference);
         
+        if (sessionId && sessionId !== currentSessionIdRef.current) {
+            console.log(`[Simulation AI] Discarding generation result for slot ${index} due to session ID mismatch.`);
+            return null;
+        }
+
         setGeneratedImages(prev => {
             const next = [...prev];
             next[index] = result;
-            // Persist generated image to Firestore in the background
-            saveCurrentMirrorSession(next);
+            // Persist generated image to Firestore in the background using debounced saver
+            saveCurrentMirrorSessionDebounced(next, frontImage, sideImage, suggestedStyles, analysisResult);
             return next;
         });
         console.log(`[STEP 10] Imagen de simulación recibida con éxito para slot ${index}`);
@@ -566,17 +634,22 @@ const App: React.FC = () => {
         console.error(`[STEP 10 FAILED] Error en la generación de imagen para slot ${index}`, e);
         return null;
     } finally {
-        setIsGeneratingImages(prev => {
-            const next = [...prev];
-            next[index] = false;
-            return next;
-        });
+        if (!sessionId || sessionId === currentSessionIdRef.current) {
+            setIsGeneratingImages(prev => {
+                const next = [...prev];
+                next[index] = false;
+                return next;
+            });
+        }
     }
   };
 
   const handleReloadAll = async () => {
       if (!frontImage || !sideImage || suggestedStyles.length === 0) return;
       
+      const sessionId = Date.now().toString();
+      currentSessionIdRef.current = sessionId;
+
       setGeneratedImages(Array(12).fill(null));
       setIsGeneratingImages(Array(12).fill(true));
 
@@ -588,8 +661,13 @@ const App: React.FC = () => {
               suggestedStyles[i], 
               'Frente', 
               'Natural', 
-              frontImage
+              frontImage,
+              undefined,
+              undefined,
+              undefined,
+              sessionId
           ).then(async (frontResult) => {
+              if (sessionId !== currentSessionIdRef.current) return;
               if (frontResult) {
                   // Generate Profile (Perfil) view using Frente as masterReference
                   await triggerImageGeneration(
@@ -600,7 +678,8 @@ const App: React.FC = () => {
                       sideImage,
                       undefined,
                       undefined,
-                      frontResult
+                      frontResult,
+                      sessionId
                   );
                   // Generate 3/4 (Tres Cuartos) view using Frente as masterReference
                   await triggerImageGeneration(
@@ -611,12 +690,13 @@ const App: React.FC = () => {
                       frontImage,
                       undefined,
                       undefined,
-                      frontResult
+                      frontResult,
+                      sessionId
                   );
               } else {
                   // Fallback if Frente generation fails
-                  triggerImageGeneration(4 + i, suggestedStyles[i], 'Perfil', 'Natural', sideImage);
-                  triggerImageGeneration(8 + i, suggestedStyles[i], 'Tres Cuartos', 'Natural', frontImage);
+                  triggerImageGeneration(4 + i, suggestedStyles[i], 'Perfil', 'Natural', sideImage, undefined, undefined, undefined, sessionId);
+                  triggerImageGeneration(8 + i, suggestedStyles[i], 'Tres Cuartos', 'Natural', frontImage, undefined, undefined, undefined, sessionId);
               }
           });
           // Small stagger offset to prevent simultaneous network bottlenecking
@@ -856,10 +936,23 @@ const App: React.FC = () => {
                     onHighlightsChange={handleHighlightsChange}
                     onRegenerateImage={(i) => {
                         const angleLabel = activeAngle === 'front' ? 'Frente' : activeAngle === 'side' ? 'Perfil' : 'Tres Cuartos';
-                        triggerImageGeneration(i, suggestedStyles[i % 4], angleLabel, 'Natural', undefined, undefined, undefined);
+                        triggerImageGeneration(
+                            i, 
+                            suggestedStyles[i % 4], 
+                            angleLabel, 
+                            'Natural', 
+                            undefined, 
+                            undefined, 
+                            undefined, 
+                            undefined, 
+                            currentSessionIdRef.current || undefined
+                        );
                     }}
                     onShare={handleSaveResults}
-                    onUploadNew={() => { setMirrorState('initial'); setFrontImage(null); setSideImage(null); }}
+                    onUploadNew={() => {
+                        currentSessionIdRef.current = null;
+                        clearMirrorState();
+                    }}
                     onImageClick={(url, caption) => setSelectedImageForModal({url, caption})}
                     onReloadAll={handleReloadAll}
                     isGuest={currentUser?.isGuest}
