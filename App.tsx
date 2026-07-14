@@ -85,6 +85,8 @@ const App: React.FC = () => {
   const [mirrorState, setMirrorState] = useState<MirrorState>('initial');
   const [frontImage, setFrontImage] = useState<string | null>(null);
   const [sideImage, setSideImage] = useState<string | null>(null);
+  const [frontImageBase64, setFrontImageBase64] = useState<string | null>(null);
+  const [sideImageBase64, setSideImageBase64] = useState<string | null>(null);
   const [suggestedStyles, setSuggestedStyles] = useState<string[]>([]);
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
   const [generatedImages, setGeneratedImages] = useState<(string | null)[]>(new Array(12).fill(null));
@@ -400,6 +402,9 @@ const App: React.FC = () => {
           const frontBase64 = await fileToBase64Payload(compressedFront);
           const sideBase64 = await fileToBase64Payload(compressedSide);
 
+          setFrontImageBase64(`data:${frontBase64.mimeType};base64,${frontBase64.data}`);
+          setSideImageBase64(`data:${sideBase64.mimeType};base64,${sideBase64.data}`);
+
           console.log('[Visagismo AI] Subiendo foto de frente a Firebase Storage...');
           const frontUrl = await uploadShopImage(compressedFront, currentShop.id, 'galery');
           console.log('[Visagismo AI] Subiendo foto de perfil a Firebase Storage...');
@@ -528,7 +533,19 @@ const App: React.FC = () => {
     });
 
     try {
-        const targetImage = imageOverride || (angle === 'Perfil' ? sideImage : frontImage);
+        let targetImage = imageOverride || (angle === 'Perfil' ? sideImage : frontImage);
+        
+        // Prefer local base64 data URI over Firebase Storage URL to prevent server-side fetch / download failures
+        if (targetImage && !targetImage.startsWith('data:')) {
+            if (angle === 'Perfil' && sideImageBase64) {
+                targetImage = sideImageBase64;
+                console.log(`[STEP 6.1] Intercepted URL for angle: ${angle}, using local sideImageBase64 data URI`);
+            } else if (frontImageBase64) {
+                targetImage = frontImageBase64;
+                console.log(`[STEP 6.1] Intercepted URL for angle: ${angle}, using local frontImageBase64 data URI`);
+            }
+        }
+
         if (!targetImage) return null;
 
         const masterReference = masterReferenceOverride || generatedImages[index % 4] || undefined;
