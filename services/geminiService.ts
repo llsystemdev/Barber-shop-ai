@@ -1,20 +1,39 @@
 import { BarberShop, Booking } from "../types";
 
-const stylePhotos: { [key: string]: string } = {
-    "Modern Fade con Textura": "https://images.pexels.com/photos/3998429/pexels-photo-3998429.jpeg?auto=compress&cs=tinysrgb&w=800",
-    "Classic Pompadour Modernizado": "https://images.pexels.com/photos/2061821/pexels-photo-2061821.jpeg?auto=compress&cs=tinysrgb&w=800",
-    "Taper Fade con Flequillo Corto": "https://images.pexels.com/photos/897251/pexels-photo-897251.jpeg?auto=compress&cs=tinysrgb&w=800",
-    "Low Fade con Textura Desordenada": "https://images.pexels.com/photos/1805600/pexels-photo-1805600.jpeg?auto=compress&cs=tinysrgb&w=800",
-    "default": "https://images.pexels.com/photos/3998429/pexels-photo-3998429.jpeg?auto=compress&cs=tinysrgb&w=800"
-};
-
-const coloredPhotos: { [key: string]: string } = {
-    "Rubio": "https://images.pexels.com/photos/3160453/pexels-photo-3160453.jpeg?auto=compress&cs=tinysrgb&w=800",
-    "Platinado": "https://images.pexels.com/photos/3160453/pexels-photo-3160453.jpeg?auto=compress&cs=tinysrgb&w=800",
-    "Castaño": "https://images.pexels.com/photos/897251/pexels-photo-897251.jpeg?auto=compress&cs=tinysrgb&w=800",
-    "Rojo": "https://images.pexels.com/photos/853427/pexels-photo-853427.jpeg?auto=compress&cs=tinysrgb&w=800",
-    "Negro": "https://images.pexels.com/photos/1805600/pexels-photo-1805600.jpeg?auto=compress&cs=tinysrgb&w=800"
-};
+// Generador de imágenes vectoriales SVG elegantes en formato data URI (100% offline-safe)
+function getFallbackSvgDataUri(title: string, subtitle: string, hairColor = '#ef4444'): string {
+    const svg = `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 400" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="hairGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="${hairColor}"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+  </defs>
+  <rect width="300" height="400" fill="url(#bgGrad)"/>
+  <path d="M-50,350 L50,450 M-50,250 L150,450 M-50,150 L250,450 M-50,50 L350,450" stroke="#ffffff" stroke-width="2" opacity="0.03" stroke-dasharray="10,10"/>
+  <path d="M150,140 Q150,300 210,260 Q215,220 215,190" fill="none" stroke="#e2e8f0" stroke-width="4" stroke-linecap="round" opacity="0.3"/>
+  <path d="M150,140 Q150,300 90,260 Q85,220 85,190" fill="none" stroke="#e2e8f0" stroke-width="4" stroke-linecap="round" opacity="0.3"/>
+  <path d="M100,160 Q120,90 150,85 Q180,90 200,160 Q150,150 100,160 Z" fill="url(#hairGrad)"/>
+  <path d="M105,155 Q150,140 195,155" fill="none" stroke="#ffffff" stroke-width="2" opacity="0.5"/>
+  <g transform="translate(150, 210) scale(0.6)" stroke="#ef4444" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.8">
+    <circle cx="-15" cy="40" r="10"/>
+    <circle cx="15" cy="40" r="10"/>
+    <line x1="-10" y1="31" x2="10" y2="-10"/>
+    <line x1="10" y1="31" x2="-10" y2="-10"/>
+  </g>
+  <rect x="20" y="310" width="260" height="60" rx="12" fill="#1e293b" stroke="#e2e8f0" stroke-width="1.5" opacity="0.9"/>
+  <text x="150" y="335" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="11" fill="#f8fafc" text-anchor="middle" letter-spacing="2">BARBER SHOP AI</text>
+  <text x="150" y="355" font-family="system-ui, -apple-system, sans-serif" font-weight="700" font-size="9" fill="#ef4444" text-anchor="middle" letter-spacing="1">${title.toUpperCase()}</text>
+</svg>
+    `.trim();
+    const base64 = btoa(unescape(encodeURIComponent(svg)));
+    return `data:image/svg+xml;base64,${base64}`;
+}
 
 export async function getStyleRecommendations(
     frontImageUrl: string, 
@@ -134,27 +153,15 @@ export async function generateStyledImage(
     } catch (error) {
         console.warn('generateStyledImage failed, using smart offline fallback image:', error);
         
-        // Find best match in coloredPhotos or stylePhotos
-        if (color && coloredPhotos[color]) {
-            return coloredPhotos[color];
-        }
-        if (highlights && coloredPhotos[highlights]) {
-            return coloredPhotos[highlights];
-        }
-        
-        if (stylePhotos[style]) {
-            return stylePhotos[style];
-        }
-        
-        // Match style name with substring matching
-        const styleKeys = Object.keys(stylePhotos);
-        for (const key of styleKeys) {
-            if (style.toLowerCase().includes(key.toLowerCase()) || key.toLowerCase().includes(style.toLowerCase())) {
-                return stylePhotos[key];
-            }
-        }
-        
-        return stylePhotos["default"];
+        let hexColor = '#ea580c';
+        if (color === 'Rubio' || highlights === 'Rubio') hexColor = '#d69e2e';
+        else if (color === 'Platinado' || highlights === 'Platinado') hexColor = '#cbd5e1';
+        else if (color === 'Castaño' || highlights === 'Castaño') hexColor = '#78350f';
+        else if (color === 'Rojo' || highlights === 'Rojo') hexColor = '#b91c1c';
+        else if (color === 'Negro' || highlights === 'Negro') hexColor = '#0f172a';
+
+        const matchedName = style || color || highlights || "Estilo Personalizado";
+        return getFallbackSvgDataUri(matchedName, `Vista ${angle}`, hexColor);
     }
 }
 

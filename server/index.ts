@@ -116,6 +116,41 @@ function getStandardMimeType(mimeType: string): string {
     return 'image/jpeg';
 }
 
+// Generador de imágenes vectoriales SVG elegantes en formato data URI
+function getFallbackSvgDataUri(title: string, subtitle: string, hairColor = '#ef4444'): string {
+    const svg = `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 400" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="hairGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="${hairColor}"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+  </defs>
+  <rect width="300" height="400" fill="url(#bgGrad)"/>
+  <path d="M-50,350 L50,450 M-50,250 L150,450 M-50,150 L250,450 M-50,50 L350,450" stroke="#ffffff" stroke-width="2" opacity="0.03" stroke-dasharray="10,10"/>
+  <path d="M150,140 Q150,300 210,260 Q215,220 215,190" fill="none" stroke="#e2e8f0" stroke-width="4" stroke-linecap="round" opacity="0.3"/>
+  <path d="M150,140 Q150,300 90,260 Q85,220 85,190" fill="none" stroke="#e2e8f0" stroke-width="4" stroke-linecap="round" opacity="0.3"/>
+  <path d="M100,160 Q120,90 150,85 Q180,90 200,160 Q150,150 100,160 Z" fill="url(#hairGrad)"/>
+  <path d="M105,155 Q150,140 195,155" fill="none" stroke="#ffffff" stroke-width="2" opacity="0.5"/>
+  <g transform="translate(150, 210) scale(0.6)" stroke="#ef4444" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.8">
+    <circle cx="-15" cy="40" r="10"/>
+    <circle cx="15" cy="40" r="10"/>
+    <line x1="-10" y1="31" x2="10" y2="-10"/>
+    <line x1="10" y1="31" x2="-10" y2="-10"/>
+  </g>
+  <rect x="20" y="310" width="260" height="60" rx="12" fill="#1e293b" stroke="#e2e8f0" stroke-width="1.5" opacity="0.9"/>
+  <text x="150" y="335" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="11" fill="#f8fafc" text-anchor="middle" letter-spacing="2">BARBER SHOP AI</text>
+  <text x="150" y="355" font-family="system-ui, -apple-system, sans-serif" font-weight="700" font-size="9" fill="#ef4444" text-anchor="middle" letter-spacing="1">${title.toUpperCase()}</text>
+</svg>
+    `.trim();
+    const base64 = Buffer.from(svg).toString('base64');
+    return `data:image/svg+xml;base64,${base64}`;
+}
+
 // Helper to fetch image from URL and return base64 with mimeType
 async function fetchImageAsBase64(url: string): Promise<{ data: string; mimeType: string }> {
     try {
@@ -266,10 +301,12 @@ async function startServer() {
 
     // 2. Style Analysis Endpoint (Real Visagismo Mirror Analysis)
     app.post('/api/analyze', async (req, res) => {
+        console.log('[STEP 1] Imagen recibida en /api/analyze');
         try {
             const { frontImageUrl, sideImageUrl, frontImage, sideImage, shop } = req.body;
 
             if (!apiKey || !ai) {
+                console.error('[Visagismo Error] El servicio de Inteligencia Artificial no está configurado.');
                 return res.status(500).json({ error: "El servicio de Inteligencia Artificial no está configurado en este momento." });
             }
 
@@ -286,19 +323,27 @@ async function startServer() {
                     data: sideImage.data.includes(',') ? sideImage.data.split(',')[1] : sideImage.data,
                     mimeType: getStandardMimeType(sideImage.mimeType || 'image/jpeg')
                 };
+                console.log('[STEP 2] Imagen validada en /api/analyze (usando payloads base64 directos)');
             }
 
             // Fallback to downloading from storage URLs
             if (!frontData && frontImageUrl) {
+                console.log(`[Visagismo AI] Fetching front image from URL: ${frontImageUrl}`);
                 frontData = await fetchImageAsBase64(frontImageUrl);
+                console.log('[STEP 5] URL verificada para foto frontal en /api/analyze');
             }
             if (!sideData && sideImageUrl) {
+                console.log(`[Visagismo AI] Fetching side image from URL: ${sideImageUrl}`);
                 sideData = await fetchImageAsBase64(sideImageUrl);
+                console.log('[STEP 5] URL verificada para foto de perfil en /api/analyze');
             }
 
             if (!frontData || !sideData) {
+                console.error('[STEP 2 FAILED] Las imágenes de frente y perfil son requeridas y no pudieron ser obtenidas.');
                 return res.status(400).json({ error: "Se requieren ambas fotografías (frente y perfil) para realizar el análisis de visagismo." });
             }
+
+            console.log('[STEP 2] Imagen validada con éxito en /api/analyze');
 
             const responseSchema = {
                 type: Type.OBJECT,
@@ -362,7 +407,8 @@ async function startServer() {
             }
             `;
 
-            console.log('[Visagismo AI] Analyzing front and profile photos with Gemini...');
+            console.log('[STEP 6] Prompt construido para /api/analyze');
+            console.log('[STEP 7] Solicitud enviada a Gemini para /api/analyze (usando gemini-3.5-flash)');
             const response = await ai.models.generateContent({
                 model: 'gemini-3.5-flash',
                 contents: {
@@ -380,12 +426,16 @@ async function startServer() {
                 },
             });
 
+            console.log('[STEP 8] Respuesta recibida de Gemini para /api/analyze');
+
             let cleanedText = response.text || '{}';
             cleanedText = cleanedText.trim();
             if (cleanedText.startsWith('```')) {
                 cleanedText = cleanedText.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/\s*```$/, '');
             }
             cleanedText = cleanedText.trim();
+            
+            console.log('[STEP 9] Parser ejecutado para /api/analyze');
             const parsedResult = JSON.parse(cleanedText);
             
             // Backward compatibility properties for UI
@@ -393,9 +443,10 @@ async function startServer() {
             parsedResult.finalRecommendation = parsedResult.analysis || '';
             parsedResult.analysisId = `analysis_${Date.now()}`;
 
+            console.log('[STEP 10] Resultado generado con éxito en /api/analyze');
             res.json(parsedResult);
         } catch (error: any) {
-            console.error('[Visagismo AI Error] Gemini API or parse failed:', error);
+            console.error('[STEP 9 FAILED] Error en la ejecución o parsing de /api/analyze:', error);
             if (error.stack) {
                 console.error(error.stack);
             }
@@ -436,10 +487,12 @@ async function startServer() {
 
     // 3. Image Generation Endpoint
     app.post('/api/generate-image', async (req, res) => {
+        console.log('[STEP 1] Imagen recibida en /api/generate-image');
         try {
             const { image, style, angle, lighting, type, color, masterReferenceImage } = req.body;
             
             if (!apiKey || !ai) {
+                console.error('[STEP 2 FAILED] El servicio de simulación visual no está disponible.');
                 return res.status(500).json({ error: "El servicio de simulación visual no está disponible." });
             }
 
@@ -450,11 +503,14 @@ async function startServer() {
                 if (image.data.startsWith('http://') || image.data.startsWith('https://')) {
                     const downloaded = await fetchImageAsBase64(image.data);
                     imagePart = { inlineData: { data: downloaded.data, mimeType: downloaded.mimeType } };
+                    console.log('[STEP 5] URL de imagen descargada y verificada para simulación');
                 } else {
                     const base64Clean = image.data.includes(',') ? image.data.split(',')[1] : image.data;
                     imagePart = { inlineData: { data: base64Clean, mimeType: getStandardMimeType(image.mimeType || 'image/jpeg') } };
                 }
+                console.log('[STEP 2] Imagen validada en /api/generate-image');
             } else {
+                console.error('[STEP 2 FAILED] Falta la imagen de origen para realizar la simulación.');
                 return res.status(400).json({ error: "Falta la imagen de origen para realizar la simulación." });
             }
 
@@ -540,7 +596,8 @@ async function startServer() {
             }
             contentsParts.push({ text: prompt });
 
-            console.log(`[Hair Simulation AI] Generating hair styled simulation with Gemini...`);
+            console.log('[STEP 6] Prompt construido para /api/generate-image');
+            console.log('[STEP 7] Solicitud enviada a Gemini para /api/generate-image');
             let response;
             try {
                 response = await ai.models.generateContent({
@@ -561,6 +618,8 @@ async function startServer() {
                 });
             }
 
+            console.log('[STEP 8] Respuesta recibida de Gemini para /api/generate-image');
+
             const firstCandidate = response?.candidates?.[0];
             let generatedImageBase64 = null;
 
@@ -574,48 +633,31 @@ async function startServer() {
             }
 
             if (!generatedImageBase64) {
+                console.error('[STEP 10 FAILED] No image generated by Gemini');
                 throw new Error("No image generated by Gemini");
             }
 
+            console.log('[STEP 10] Resultado generado con éxito en /api/generate-image');
             res.json({ image: generatedImageBase64 });
         } catch (error: any) {
             console.warn('[Hair Simulation AI Fallback] Image generation failed, returning high-fidelity styled image:', error.message || error);
             
-            const stylePhotos: { [key: string]: string } = {
-                "Modern Fade con Textura": "https://images.pexels.com/photos/3998429/pexels-photo-3998429.jpeg?auto=compress&cs=tinysrgb&w=800",
-                "Classic Pompadour Modernizado": "https://images.pexels.com/photos/2061821/pexels-photo-2061821.jpeg?auto=compress&cs=tinysrgb&w=800",
-                "Taper Fade con Flequillo Corto": "https://images.pexels.com/photos/897251/pexels-photo-897251.jpeg?auto=compress&cs=tinysrgb&w=800",
-                "Low Fade con Textura Desordenada": "https://images.pexels.com/photos/1805600/pexels-photo-1805600.jpeg?auto=compress&cs=tinysrgb&w=800",
-                "default": "https://images.pexels.com/photos/3998429/pexels-photo-3998429.jpeg?auto=compress&cs=tinysrgb&w=800"
-            };
-
-            const coloredPhotos: { [key: string]: string } = {
-                "Rubio": "https://images.pexels.com/photos/3160453/pexels-photo-3160453.jpeg?auto=compress&cs=tinysrgb&w=800",
-                "Platinado": "https://images.pexels.com/photos/3160453/pexels-photo-3160453.jpeg?auto=compress&cs=tinysrgb&w=800",
-                "Castaño": "https://images.pexels.com/photos/897251/pexels-photo-897251.jpeg?auto=compress&cs=tinysrgb&w=800",
-                "Rojo": "https://images.pexels.com/photos/853427/pexels-photo-853427.jpeg?auto=compress&cs=tinysrgb&w=800",
-                "Negro": "https://images.pexels.com/photos/1805600/pexels-photo-1805600.jpeg?auto=compress&cs=tinysrgb&w=800"
-            };
-
-            let matchedUrl = stylePhotos["default"];
             const targetColor = req.body.color;
             const targetStyle = req.body.style;
+            const angleLabel = req.body.angle || "Frente";
 
-            if (targetColor && coloredPhotos[targetColor]) {
-                matchedUrl = coloredPhotos[targetColor];
-            } else if (targetStyle && stylePhotos[targetStyle]) {
-                matchedUrl = stylePhotos[targetStyle];
-            } else if (targetStyle) {
-                const styleKeys = Object.keys(stylePhotos);
-                for (const key of styleKeys) {
-                    if (targetStyle.toLowerCase().includes(key.toLowerCase()) || key.toLowerCase().includes(targetStyle.toLowerCase())) {
-                        matchedUrl = stylePhotos[key];
-                        break;
-                    }
-                }
-            }
+            let hexColor = '#ea580c'; // default warm accent
+            if (targetColor === 'Rubio') hexColor = '#d69e2e';
+            else if (targetColor === 'Platinado') hexColor = '#cbd5e1';
+            else if (targetColor === 'Castaño') hexColor = '#78350f';
+            else if (targetColor === 'Rojo') hexColor = '#b91c1c';
+            else if (targetColor === 'Negro') hexColor = '#0f172a';
 
-            res.json({ image: matchedUrl, isOfflineFallback: true });
+            const matchedName = targetStyle || (targetColor ? `Color ${targetColor}` : "Estilo Personalizado");
+            console.log(`[Hair Simulation AI] Generating fallback SVG vector graphic for "${matchedName}" with accent "${hexColor}"`);
+            
+            const svgData = getFallbackSvgDataUri(matchedName, `Vista ${angleLabel}`, hexColor);
+            res.json({ image: svgData, isOfflineFallback: true });
         }
     });
 

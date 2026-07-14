@@ -446,23 +446,46 @@ const App: React.FC = () => {
           }
 
           // Trigger background generation for all 12 slots (4 styles x 3 angles)
-          const angles: { name: string, offset: number, imgUrl: string | null }[] = [
-              { name: 'Frente', offset: 0, imgUrl: frontUrl },
-              { name: 'Perfil', offset: 4, imgUrl: sideUrl },
-              { name: 'Tres Cuartos', offset: 8, imgUrl: frontUrl }
-          ];
-
-          for (const angleInfo of angles) {
-              for (let i = 0; i < analysis.styles.length; i++) {
-                  triggerImageGeneration(
-                      angleInfo.offset + i, 
-                      analysis.styles[i], 
-                      angleInfo.name, 
-                      'Natural', 
-                      angleInfo.imgUrl || undefined
-                  );
-                  await new Promise(r => setTimeout(r, 450)); 
-              }
+          // We trigger Frente (slots 0..3) first. As each Frente style i completes, we trigger its Perfil (4+i) and Tres Cuartos (8+i) using the Frente result as masterReference!
+          for (let i = 0; i < analysis.styles.length; i++) {
+              triggerImageGeneration(
+                  i, 
+                  analysis.styles[i], 
+                  'Frente', 
+                  'Natural', 
+                  frontUrl
+              ).then(async (frontResult) => {
+                  if (frontResult) {
+                      // Generate Profile (Perfil) view of style i using Frente as masterReference
+                      await triggerImageGeneration(
+                          4 + i,
+                          analysis.styles[i],
+                          'Perfil',
+                          'Natural',
+                          sideUrl,
+                          undefined,
+                          undefined,
+                          frontResult
+                      );
+                      // Generate 3/4 (Tres Cuartos) view of style i using Frente as masterReference
+                      await triggerImageGeneration(
+                          8 + i,
+                          analysis.styles[i],
+                          'Tres Cuartos',
+                          'Natural',
+                          frontUrl,
+                          undefined,
+                          undefined,
+                          frontResult
+                      );
+                  } else {
+                      // Fallback if Frente generation fails, generate profile and threeQuarter without master reference
+                      triggerImageGeneration(4 + i, analysis.styles[i], 'Perfil', 'Natural', sideUrl);
+                      triggerImageGeneration(8 + i, analysis.styles[i], 'Tres Cuartos', 'Natural', frontUrl);
+                  }
+              });
+              // Small stagger offset to prevent simultaneous network bottlenecking
+              await new Promise(r => setTimeout(r, 450));
           }
           
       } catch (e) {
@@ -488,7 +511,16 @@ const App: React.FC = () => {
       }
   };
 
-  const triggerImageGeneration = async (index: number, style: string, angle: string, lighting: string, imageOverride?: string, color?: string, highlights?: string) => {
+  const triggerImageGeneration = async (
+    index: number, 
+    style: string, 
+    angle: string, 
+    lighting: string, 
+    imageOverride?: string, 
+    color?: string, 
+    highlights?: string,
+    masterReferenceOverride?: string
+  ): Promise<string | null> => {
     setIsGeneratingImages(prev => {
         const next = [...prev];
         next[index] = true;
@@ -497,9 +529,10 @@ const App: React.FC = () => {
 
     try {
         const targetImage = imageOverride || (angle === 'Perfil' ? sideImage : frontImage);
-        if (!targetImage) return;
+        if (!targetImage) return null;
 
-        const masterReference = generatedImages[index % 4] || undefined;
+        const masterReference = masterReferenceOverride || generatedImages[index % 4] || undefined;
+        console.log(`[STEP 6] Solicitando generación de imagen (slot ${index}) para estilo: ${style}, ángulo: ${angle}`);
 
         const result = await generateStyledImage(targetImage, 'image/jpeg', style, angle, lighting, color, highlights, masterReference);
         
@@ -510,8 +543,11 @@ const App: React.FC = () => {
             saveCurrentMirrorSession(next);
             return next;
         });
+        console.log(`[STEP 10] Imagen de simulación recibida con éxito para slot ${index}`);
+        return result;
     } catch (e) {
-        console.error("Error en la generación de imagen (slot " + index + "):", e);
+        console.error(`[STEP 10 FAILED] Error en la generación de imagen para slot ${index}`, e);
+        return null;
     } finally {
         setIsGeneratingImages(prev => {
             const next = [...prev];
@@ -527,23 +563,47 @@ const App: React.FC = () => {
       setGeneratedImages(Array(12).fill(null));
       setIsGeneratingImages(Array(12).fill(true));
 
-      const angles: { name: string, offset: number, imgUrl: string | null }[] = [
-          { name: 'Frente', offset: 0, imgUrl: frontImage },
-          { name: 'Perfil', offset: 4, imgUrl: sideImage },
-          { name: 'Tres Cuartos', offset: 8, imgUrl: frontImage }
-      ];
-
-      for (const angleInfo of angles) {
-          for (let i = 0; i < suggestedStyles.length; i++) {
-              triggerImageGeneration(
-                  angleInfo.offset + i, 
-                  suggestedStyles[i], 
-                  angleInfo.name, 
-                  'Natural', 
-                  angleInfo.imgUrl || undefined
-              );
-              await new Promise(r => setTimeout(r, 450)); 
-          }
+      // Trigger sequential background generation for all 12 slots (4 styles x 3 angles)
+      // We generate Frente views first. Once each completes, we generate its Profile and 3/4 views with the Frente design as masterReference!
+      for (let i = 0; i < suggestedStyles.length; i++) {
+          triggerImageGeneration(
+              i, 
+              suggestedStyles[i], 
+              'Frente', 
+              'Natural', 
+              frontImage
+          ).then(async (frontResult) => {
+              if (frontResult) {
+                  // Generate Profile (Perfil) view using Frente as masterReference
+                  await triggerImageGeneration(
+                      4 + i,
+                      suggestedStyles[i],
+                      'Perfil',
+                      'Natural',
+                      sideImage,
+                      undefined,
+                      undefined,
+                      frontResult
+                  );
+                  // Generate 3/4 (Tres Cuartos) view using Frente as masterReference
+                  await triggerImageGeneration(
+                      8 + i,
+                      suggestedStyles[i],
+                      'Tres Cuartos',
+                      'Natural',
+                      frontImage,
+                      undefined,
+                      undefined,
+                      frontResult
+                  );
+              } else {
+                  // Fallback if Frente generation fails
+                  triggerImageGeneration(4 + i, suggestedStyles[i], 'Perfil', 'Natural', sideImage);
+                  triggerImageGeneration(8 + i, suggestedStyles[i], 'Tres Cuartos', 'Natural', frontImage);
+              }
+          });
+          // Small stagger offset to prevent simultaneous network bottlenecking
+          await new Promise(r => setTimeout(r, 450));
       }
   };
 
