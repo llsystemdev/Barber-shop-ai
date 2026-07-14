@@ -29,7 +29,7 @@ const BookingsListView = React.lazy(() => import('./views/BookingsListView'));
 const ShopProfileView = React.lazy(() => import('./views/ShopProfileView'));
 const BillingView = React.lazy(() => import('./views/BillingView'));
 const AdminView = React.lazy(() => import('./views/AdminView'));
-const MirrorView = React.lazy(() => import('./views/MirrorView'));
+import MirrorView from './views/MirrorView';
 const BlogView = React.lazy(() => import('./views/BlogView'));
 
 import { getStyleRecommendations, generateStyledImage } from './services/geminiService';
