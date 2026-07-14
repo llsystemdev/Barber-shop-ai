@@ -155,32 +155,83 @@ const ShopProfileView: React.FC<ShopProfileViewProps> = ({ shop, onUpdateProfile
   };
 
   const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
     
     setIsUploading(true);
-    setStatusMsg("Preparando imagen...");
-    setUploadProgress(10);
+    setStatusMsg("Preparando imágenes...");
+    setUploadProgress(0);
     
-    try {
-      const processedFile = await convertHeicToJpeg(file, (msg) => setStatusMsg(msg));
-      
-      setUploadProgress(30);
-      const timer = setInterval(() => {
-        setUploadProgress(prev => (prev < 90 ? prev + 10 : prev));
-      }, 200);
+    const totalCount = files.length;
+    let completedCount = 0;
+    let failedCount = 0;
+    const uploadedUrls: string[] = [];
+    
+    // Concurrency limit of 3 to avoid saturating storage/network
+    const CONCURRENCY_LIMIT = 3;
+    const queue = [...files];
+    
+    const worker = async () => {
+      while (queue.length > 0) {
+        const file = queue.shift();
+        if (!file) continue;
+        
+        try {
+          const currentNumber = completedCount + failedCount + 1;
+          setStatusMsg(`Subiendo ${currentNumber} de ${totalCount}...`);
+          
+          const processedFile = await convertHeicToJpeg(file, (msg) => {
+            setStatusMsg(`[${currentNumber}/${totalCount}] ${msg}`);
+          });
+          
+          const url = await uploadShopImage(processedFile, shop.id, 'galery');
+          uploadedUrls.push(url);
+          completedCount++;
+        } catch (error: any) {
+          console.error(`[Gallery Upload Error] Failed to upload ${file.name}:`, error);
+          failedCount++;
+        } finally {
+          const processedCount = completedCount + failedCount;
+          const progressPercentage = Math.round((processedCount / totalCount) * 100);
+          setUploadProgress(progressPercentage);
+        }
+      }
+    };
 
-      const url = await uploadShopImage(processedFile, shop.id, 'galery');
-      clearInterval(timer);
+    try {
+      const workers = [];
+      const activeWorkersCount = Math.min(CONCURRENCY_LIMIT, totalCount);
+      for (let i = 0; i < activeWorkersCount; i++) {
+        workers.push(worker());
+      }
+      await Promise.all(workers);
+      
+      if (uploadedUrls.length > 0) {
+        setEditableShop(prev => ({ 
+          ...prev, 
+          gallery: [...prev.gallery, ...uploadedUrls] 
+        }));
+      }
+      
+      let finalMsg = "";
+      if (completedCount === totalCount) {
+        finalMsg = totalCount === 1 
+          ? "¡Imagen cargada en la galería!" 
+          : `¡${completedCount} imágenes cargadas correctamente!`;
+      } else if (completedCount > 0) {
+        finalMsg = `Cargadas ${completedCount} de ${totalCount} imágenes (${failedCount} fallidas).`;
+      } else {
+        finalMsg = "No se pudo cargar ninguna imagen. Intenta de nuevo.";
+      }
+      
+      setStatusMsg(finalMsg);
       setUploadProgress(100);
       
-      setEditableShop(prev => ({ ...prev, gallery: [...prev.gallery, url] }));
-      setStatusMsg("¡Imagen cargada en la galería!");
       setTimeout(() => {
         setStatusMsg(null);
         setIsUploading(false);
         setUploadProgress(0);
-      }, 1500);
+      }, 2500);
     } catch (error: any) {
       alert("Error de subida: " + error.message);
       setIsUploading(false);
@@ -487,7 +538,7 @@ const ShopProfileView: React.FC<ShopProfileViewProps> = ({ shop, onUpdateProfile
                         onClick={() => galleryInputRef.current?.click()}
                         className="aspect-[3/4] bg-white border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center hover:border-red-600 hover:bg-red-50/20 transition-all text-center p-4"
                       >
-                        <input type="file" accept=".heic,.heif,image/heic,image/heif,image/jpeg,image/png,image/webp" className="hidden" ref={galleryInputRef} onChange={handleGalleryUpload} />
+                        <input type="file" multiple accept=".heic,.heif,image/heic,image/heif,image/jpeg,image/png,image/webp" className="hidden" ref={galleryInputRef} onChange={handleGalleryUpload} />
                         <span className="text-2xl mb-2">📸</span>
                         <span className="text-[9px] font-black uppercase text-slate-500 tracking-wider">Añadir Foto</span>
                       </button>
