@@ -177,7 +177,7 @@ async function fetchImageAsBase64(url: string): Promise<{ data: string; mimeType
 
 async function startServer() {
     const app = express();
-    const port = 3000;
+    const port = Number(process.env.PORT) || 3000;
 
     app.use(cors());
     app.use(compression());
