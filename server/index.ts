@@ -604,7 +604,9 @@ async function startServer() {
                     model: 'gemini-3.1-flash-lite-image',
                     contents: { parts: contentsParts },
                     config: {
-                        responseModalities: [Modality.IMAGE],
+                        imageConfig: {
+                            aspectRatio: '1:1'
+                        }
                     },
                 });
             } catch (liteError: any) {
@@ -613,7 +615,9 @@ async function startServer() {
                     model: 'gemini-3.1-flash-image',
                     contents: { parts: contentsParts },
                     config: {
-                        responseModalities: [Modality.IMAGE],
+                        imageConfig: {
+                            aspectRatio: '1:1'
+                        }
                     },
                 });
             }
