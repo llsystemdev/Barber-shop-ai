@@ -363,6 +363,8 @@ async function startServer() {
                     symmetry: { type: Type.STRING },
                     jaw: { type: Type.STRING },
                     hairType: { type: Type.STRING },
+                    hasBeard: { type: Type.BOOLEAN, description: 'Indica si la persona tiene barba, perilla o vello facial' },
+                    beardAnalysis: { type: Type.STRING, description: 'Análisis del estado, densidad y tipo de barba o vello facial' },
                     recommendedCuts: {
                         type: Type.ARRAY,
                         items: { type: Type.STRING }
@@ -383,6 +385,8 @@ async function startServer() {
                     'symmetry',
                     'jaw',
                     'hairType',
+                    'hasBeard',
+                    'beardAnalysis',
                     'recommendedCuts',
                     'recommendedBeards',
                     'products',
@@ -392,17 +396,18 @@ async function startServer() {
             };
 
             const systemPrompt = `
-            Eres un Asistente Profesional de Visagismo y Estilismo Capilar de clase mundial de la barbería ${shop?.name || 'Barbería AI'}.
+            Eres un Asistente Profesional de Visagismo y Estilismo Capilar y de Barba de clase mundial de la barbería ${shop?.name || 'Barbería AI'}.
             Tu tarea es analizar las dos fotografías reales del usuario (una de frente y otra de perfil) y realizar un diagnóstico morfológico facial real y sumamente profesional.
             
             Debes evaluar detalladamente:
             1. La forma del rostro (ovalado, redondo, cuadrado, rectangular, corazón, diamante, etc.) y su simetría.
             2. El contorno de la mandíbula y el mentón, la frente, los pómulos y la nariz.
             3. El tipo de cabello (lacio, ondulado, rizado, crespo), densidad y textura visible.
-            4. El contorno del perfil y proporciones faciales.
-            
-            Debes recomendar exactamente 4 cortes de cabello masculinos/estilizados que favorezcan enormemente sus rasgos basándose en la teoría del visagismo.
-            También recomienda estilos de barba/cuidado facial y productos de peinado específicos (ceras, arcillas, pomadas, aceites).
+            4. DETECCIÓN Y ANÁLISIS DE BARBA: Revisa atentamente si el cliente tiene barba, perilla, bigote o vello facial visible ('hasBeard': true/false).
+               - Si tiene barba o sombra de barba: indica 'hasBeard': true, explica su densidad/forma en 'beardAnalysis', y sugiere en 'recommendedBeards' 2 o 3 diseños de barba específicos (ej: 'Barba Corta Sombreada Perfilada', 'Candado Moderno', 'Barba Completa Corporativa').
+               - Si no tiene barba: indica 'hasBeard': false, explica en 'beardAnalysis' que está afeitado y sugiere estilos recomendados en caso de crecimiento o cuidado del afeitado.
+            5. Recomienda exactamente 4 cortes de cabello masculinos/estilizados que favorezcan enormemente sus rasgos basándose en la teoría del visagismo.
+            6. Recomienda productos de peinado y cuidado de barba específicos (ceras, aceites para barba, pomadas, tónicos).
             
             Tu respuesta debe ser un objeto JSON que cumpla EXACTAMENTE con el siguiente esquema:
             {
@@ -410,8 +415,10 @@ async function startServer() {
               "symmetry": "Análisis de simetría y proporciones faciales",
               "jaw": "Análisis de la línea de la mandíbula y mentón",
               "hairType": "Diagnóstico del tipo de cabello, textura y densidad",
+              "hasBeard": true o false,
+              "beardAnalysis": "Análisis detallado de la barba o vello facial",
               "recommendedCuts": ["Corte 1", "Corte 2", "Corte 3", "Corte 4"],
-              "recommendedBeards": ["Barba/Estilo 1", "Barba/Estilo 2"],
+              "recommendedBeards": ["Diseño Barba 1", "Diseño Barba 2"],
               "products": ["Producto 1", "Producto 2"],
               "analysis": "Un análisis completo y unificado que combine toda la información técnica en un tono consultivo profesional y motivador",
               "confidence": un número decimal de confianza entre 0 y 1
@@ -449,8 +456,11 @@ async function startServer() {
             console.log('[STEP 9] Parser ejecutado para /api/analyze');
             const parsedResult = JSON.parse(cleanedText);
             
-            // Backward compatibility properties for UI
+            // Backward compatibility and beard properties for UI
             parsedResult.styles = parsedResult.recommendedCuts || [];
+            parsedResult.recommendedBeards = parsedResult.recommendedBeards || [];
+            parsedResult.hasBeard = typeof parsedResult.hasBeard === 'boolean' ? parsedResult.hasBeard : (parsedResult.recommendedBeards.length > 0);
+            parsedResult.beardAnalysis = parsedResult.beardAnalysis || (parsedResult.hasBeard ? "Vello facial visible detectado en zona mandibular y mentón." : "Afeitado apurado o sin barba prominente.");
             parsedResult.finalRecommendation = parsedResult.analysis || '';
             parsedResult.analysisId = `analysis_${Date.now()}`;
 
@@ -466,6 +476,8 @@ async function startServer() {
                 symmetry: "Excelente simetría facial con pómulos bien definidos y proporciones equilibradas.",
                 jaw: "Línea de mandíbula angulosa y marcada con mentón fuerte y alineado.",
                 hairType: "Cabello ondulado de densidad media-alta con excelente textura natural.",
+                hasBeard: true,
+                beardAnalysis: "Barba con buen crecimiento en mandíbula y mentón. Se recomienda perfilado de líneas superiores.",
                 recommendedCuts: [
                     "Modern Fade con Textura",
                     "Classic Pompadour Modernizado",
@@ -473,8 +485,8 @@ async function startServer() {
                     "Low Fade con Textura Desordenada"
                 ],
                 recommendedBeards: [
-                    "Barba Corta Sombreada (Stubby Beard) de 3 días",
-                    "Barba Completa Corporativa bien perfilada en mejillas"
+                    "Barba Corta Sombreada (Stubby Beard) perfilada a navaja",
+                    "Candado Moderno con líneas de mejilla impecables"
                 ],
                 products: [
                     "Cera Mate de fijación firme y acabado natural",

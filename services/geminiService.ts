@@ -70,6 +70,8 @@ export async function getStyleRecommendations(
             symmetry: "Excelente simetría facial con pómulos bien definidos y proporciones equilibradas.",
             jaw: "Línea de mandíbula angulosa y marcada con mentón fuerte y alineado.",
             hairType: "Cabello ondulado de densidad media-alta con excelente textura natural.",
+            hasBeard: true,
+            beardAnalysis: "Vello facial/barba detectado con densidad natural en zona mandibular y mentón.",
             recommendedCuts: [
                 "Modern Fade con Textura",
                 "Classic Pompadour Modernizado",
@@ -77,8 +79,8 @@ export async function getStyleRecommendations(
                 "Low Fade con Textura Desordenada"
             ],
             recommendedBeards: [
-                "Barba Corta Sombreada (Stubby Beard) de 3 días",
-                "Barba Completa Corporativa bien perfilada en mejillas"
+                "Barba Corta Sombreada (Stubby Beard) perfilada a navaja",
+                "Candado Moderno con líneas de mejilla impecables"
             ],
             products: [
                 "Cera Mate de fijación firme y acabado natural",

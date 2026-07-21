@@ -188,9 +188,22 @@ const Sidebar: React.FC<SidebarProps> = ({
           )
         )}
         
-        <footer className="pt-4 text-center text-[10px] text-slate-500 uppercase tracking-widest font-medium">
+        <footer className="pt-4 text-center text-[10px] text-slate-500 uppercase tracking-widest font-medium border-t border-slate-900/80 mt-2 space-y-1">
           <p>{currentShop?.name || 'Barber Shop AI'}</p>
-          <p className="mt-1 opacity-50">SISTEMA DE GESTIÓN INTELIGENTE</p>
+          <p className="opacity-50">SISTEMA DE GESTIÓN INTELIGENTE</p>
+          <div className="pt-2 text-[9px] text-slate-400 normal-case tracking-normal font-semibold">
+            <span>Desarrollado por </span>
+            <a
+              href="https://ll-dev-system.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Visitar L&L DEV SYSTEM"
+              title="L&L DEV SYSTEM"
+              className="text-slate-300 hover:text-red-400 font-bold underline decoration-slate-700 hover:decoration-red-400 transition-colors"
+            >
+              L&L DEV SYSTEM
+            </a>
+          </div>
         </footer>
       </div>
     </aside>

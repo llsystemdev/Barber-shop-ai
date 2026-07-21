@@ -652,7 +652,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onShowLogin, onGoHome, onStartGuest
                   <p className="text-[11px] text-slate-500 leading-normal font-medium">Digitalizar barberías locales dándoles herramientas de nivel global.</p>
                 </div>
                 <div className="p-4 bg-slate-900/30 border border-slate-900/60 rounded-2xl">
-                  <div className="text-xl mb-1">👁️‍عون</div>
+                  <div className="text-xl mb-1">👁️‍🗨️</div>
                   <h5 className="font-black text-xs uppercase tracking-wider text-white mb-1">Visión</h5>
                   <p className="text-[11px] text-slate-500 leading-normal font-medium">Liderar la innovación en simulación de estilo e inteligencia artificial de visagismo.</p>
                 </div>
@@ -661,6 +661,27 @@ const HomeView: React.FC<HomeViewProps> = ({ onShowLogin, onGoHome, onStartGuest
                   <h5 className="font-black text-xs uppercase tracking-wider text-white mb-1">Valores</h5>
                   <p className="text-[11px] text-slate-500 leading-normal font-medium">Pasión por la excelencia, soporte incondicional y respeto por el arte tradicional.</p>
                 </div>
+              </div>
+
+              {/* Developer Info Card */}
+              <div className="p-6 bg-slate-900/60 border border-slate-800 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-5 mt-6">
+                <div className="space-y-1 text-left">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-red-500">Desarrollado por</span>
+                  <h4 className="text-base font-black text-white uppercase tracking-tight">L&L DEV SYSTEM</h4>
+                  <p className="text-xs text-slate-400 font-medium leading-relaxed">
+                    Empresa especializada en desarrollo de software, inteligencia artificial, soluciones empresariales y aplicaciones SaaS.
+                  </p>
+                </div>
+                <a
+                  href="https://ll-dev-system.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Visitar L&L DEV SYSTEM"
+                  title="L&L DEV SYSTEM"
+                  className="px-5 py-3 bg-red-600 hover:bg-red-700 text-white text-xs font-black uppercase tracking-wider rounded-2xl transition-all shadow-md shadow-red-600/20 flex-shrink-0"
+                >
+                  Visitar L&L DEV SYSTEM
+                </a>
               </div>
             </div>
           </div>
@@ -696,7 +717,18 @@ const HomeView: React.FC<HomeViewProps> = ({ onShowLogin, onGoHome, onStartGuest
           <div>
             <h4 className="text-xs font-black text-white uppercase tracking-widest mb-4">Desarrollador</h4>
             <ul className="space-y-2 text-xs text-slate-400 font-semibold">
-              <li><span className="text-slate-300">L&L Dev System</span></li>
+              <li>
+                <a
+                  href="https://ll-dev-system.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Visitar L&L DEV SYSTEM"
+                  title="L&L DEV SYSTEM"
+                  className="text-white hover:text-red-400 transition-colors font-black underline decoration-slate-600 hover:decoration-red-400"
+                >
+                  L&L DEV SYSTEM
+                </a>
+              </li>
               <li><span className="text-slate-500">Ing. Luis A. Mañon Z.</span></li>
               <li className="text-[10px] text-emerald-500 font-bold uppercase tracking-wider">PLATAFORMA INTEGRADA DE IA ACTIVA</li>
             </ul>
@@ -707,6 +739,19 @@ const HomeView: React.FC<HomeViewProps> = ({ onShowLogin, onGoHome, onStartGuest
           <p className="text-xs text-slate-500 font-medium">
             &copy; {new Date().getFullYear()} Barber Shop AI. Todos los derechos reservados.
           </p>
+          <div className="flex items-center gap-1 text-xs text-slate-400 font-medium">
+            <span>Software desarrollado por</span>
+            <a
+              href="https://ll-dev-system.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Visitar L&L DEV SYSTEM"
+              title="L&L DEV SYSTEM"
+              className="text-slate-300 hover:text-red-400 font-bold underline decoration-slate-700 hover:decoration-red-400 transition-colors ml-0.5"
+            >
+              L&L DEV SYSTEM
+            </a>
+          </div>
           <div className="flex space-x-6 text-xs text-slate-500 font-semibold">
             <span onClick={() => setIsSupportOpen(true)} className="hover:text-white transition-colors cursor-pointer">Soporte</span>
             <span onClick={() => setIsContactOpen(true)} className="hover:text-white transition-colors cursor-pointer">Contacto</span>

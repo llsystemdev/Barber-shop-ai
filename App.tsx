@@ -89,6 +89,7 @@ const App: React.FC = () => {
   const [sideImageBase64, setSideImageBase64] = useState<string | null>(null);
   const [suggestedStyles, setSuggestedStyles] = useState<string[]>([]);
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
+  const [analysisData, setAnalysisData] = useState<any>(null);
   const [generatedImages, setGeneratedImages] = useState<(string | null)[]>(new Array(12).fill(null));
   const [isGeneratingImages, setIsGeneratingImages] = useState<boolean[]>(new Array(12).fill(false));
   const [activeAngle, setActiveAngle] = useState<'front' | 'side' | 'threeQuarter'>('front');
@@ -114,6 +115,7 @@ const App: React.FC = () => {
     setSideImageBase64(null);
     setSuggestedStyles([]);
     setAnalysisResult(null);
+    setAnalysisData(null);
     setGeneratedImages(new Array(12).fill(null));
     setIsGeneratingImages(new Array(12).fill(false));
     setMirrorState('initial');
@@ -490,6 +492,7 @@ const App: React.FC = () => {
 
           setSuggestedStyles(analysis.styles);
           setAnalysisResult(analysis.finalRecommendation);
+          setAnalysisData(analysis);
           setIsMirrorOffline(!!analysis.isOfflineFallback);
           setMirrorState('results');
 
@@ -986,6 +989,7 @@ const App: React.FC = () => {
                     generatedImages={generatedImages}
                     suggestedStyles={suggestedStyles}
                     analysisResult={analysisResult}
+                    analysisData={analysisData}
                     isGeneratingImages={isGeneratingImages}
                     activeAngle={activeAngle}
                     plan={currentShop.plan}
@@ -1043,6 +1047,22 @@ const App: React.FC = () => {
                 />
             )}
           </React.Suspense>
+          <footer className="py-3 px-6 bg-slate-950/80 border-t border-slate-900 text-center text-[11px] text-slate-500 font-medium flex flex-col sm:flex-row items-center justify-between gap-2 mt-auto">
+            <p>&copy; {new Date().getFullYear()} {currentShop?.name || 'Barber Shop AI'}. Todos los derechos reservados.</p>
+            <div className="flex items-center gap-1.5 text-slate-400">
+              <span>Software desarrollado por</span>
+              <a
+                href="https://ll-dev-system.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Visitar L&L DEV SYSTEM"
+                title="L&L DEV SYSTEM"
+                className="text-slate-300 hover:text-red-500 font-bold underline decoration-slate-700 hover:decoration-red-500 transition-colors"
+              >
+                L&L DEV SYSTEM
+              </a>
+            </div>
+          </footer>
         </main>
       </div>
       {selectedImageForModal && (

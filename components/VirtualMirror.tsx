@@ -3,12 +3,22 @@ import React, { useState, useMemo } from 'react';
 
 type Angle = 'front' | 'side' | 'threeQuarter';
 
+interface AnalysisData {
+  hasBeard?: boolean;
+  beardAnalysis?: string;
+  recommendedBeards?: string[];
+  faceShape?: string;
+  hairType?: string;
+  products?: string[];
+}
+
 interface VirtualMirrorProps {
   frontImage: string | null;
   sideImage: string | null;
   generatedImages: (string | null)[];
   styleNames: string[];
   analysisResult: string | null;
+  analysisData?: AnalysisData | null;
   isLoading: boolean[];
   activeAngle: Angle;
   plan: 'Freemium' | 'Básico' | 'Profesional';
@@ -45,10 +55,11 @@ const ImageCell: React.FC<{
   onClick: () => void,
   onRegenerate: (e: React.MouseEvent) => void,
   onToggleFavorite: (e: React.MouseEvent) => void,
+  onShareImage: (e: React.MouseEvent) => void,
   lighting: string,
   hairColor: string | undefined,
   highlights: string | undefined
-}> = ({ image, styleName, isLoading, isFreemium, isFavorite, watermarkText, onClick, onRegenerate, onToggleFavorite, lighting, hairColor, highlights }) => {
+}> = ({ image, styleName, isLoading, isFreemium, isFavorite, watermarkText, onClick, onRegenerate, onToggleFavorite, onShareImage, lighting, hairColor, highlights }) => {
   console.log('[AUDIT LOG 4 - COMPONENT INPUT]', { styleName, hasImage: !!image, imagePreview: image ? image.substring(0, 100) + '...' : 'null', isLoading });
   return (
     <div className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden shadow-xl group bg-slate-100 border-2 border-transparent hover:border-red-600 hover:shadow-red-500/10 transition-all duration-300">
@@ -108,9 +119,21 @@ const ImageCell: React.FC<{
           <button
             onClick={onRegenerate}
             className="bg-white text-slate-950 p-2 rounded-full shadow-lg hover:scale-110 transition-transform hover:text-red-600"
+            title="Regenerar estilo"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </button>
+
+          {/* Botón Compartir Redes */}
+          <button
+            onClick={onShareImage}
+            className="bg-white text-slate-950 p-2 rounded-full shadow-lg hover:scale-110 transition-transform hover:text-red-600"
+            title="Compartir en Redes Sociales"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 100-5.368 3 3 0 000 5.368zm0 9.5a3 3 0 100-5.368 3 3 0 000 5.368z" />
             </svg>
           </button>
         </div>
@@ -137,6 +160,23 @@ const VirtualMirror: React.FC<VirtualMirrorProps> = (props) => {
   const [activeComparisonStyleIdx, setActiveComparisonStyleIdx] = useState<number | null>(null);
   const [sliderPosition, setSliderPosition] = useState(50);
   
+  // Estados de Compartir en Redes Sociales
+  const [showFreemiumLockModal, setShowFreemiumLockModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareTargetImage, setShareTargetImage] = useState<string | null>(null);
+  const [shareTargetStyle, setShareTargetStyle] = useState<string | null>(null);
+  const [copySuccess, setCopySuccess] = useState(false);
+
+  const handleTriggerShare = (imageUrl: string | null, styleName: string) => {
+    if (isFreemium) {
+      setShowFreemiumLockModal(true);
+    } else {
+      setShareTargetImage(imageUrl);
+      setShareTargetStyle(styleName);
+      setShowShareModal(true);
+    }
+  };
+
   // Catálogo de Favoritos Local
   const [favorites, setFavorites] = useState<Array<{ styleName: string, image: string }>>([]);
 
@@ -275,6 +315,41 @@ const VirtualMirror: React.FC<VirtualMirrorProps> = (props) => {
                 <p className="text-xs text-slate-600 font-medium leading-relaxed italic">"{props.analysisResult}"</p>
               </div>
             )}
+
+            {/* Detección y Recomendación de Barba */}
+            {props.analysisData && (props.analysisData.hasBeard || (props.analysisData.recommendedBeards && props.analysisData.recommendedBeards.length > 0)) && (
+              <div className="p-6 bg-slate-950 text-white rounded-3xl shadow-xl border border-slate-800 space-y-4 animate-fade-in">
+                <div className="flex items-center gap-3 border-b border-slate-800 pb-3">
+                  <div className="w-10 h-10 rounded-2xl bg-red-600/20 text-red-500 border border-red-500/30 flex items-center justify-center text-xl font-black">
+                    🧔
+                  </div>
+                  <div>
+                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-red-500 block">Análisis Facial Específico</span>
+                    <h4 className="text-sm font-black uppercase tracking-tight text-white">Detección de Barba & Diseños Sugeridos</h4>
+                  </div>
+                </div>
+
+                {props.analysisData.beardAnalysis && (
+                  <p className="text-xs text-slate-300 font-medium leading-relaxed italic bg-slate-900/90 p-3.5 rounded-2xl border border-slate-800/80">
+                    "{props.analysisData.beardAnalysis}"
+                  </p>
+                )}
+
+                {props.analysisData.recommendedBeards && props.analysisData.recommendedBeards.length > 0 && (
+                  <div className="space-y-2 pt-1">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Estilos y Diseños de Barba Sugeridos para tu Rostro:</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {props.analysisData.recommendedBeards.map((beardStyle: string, bIdx: number) => (
+                        <div key={bIdx} className="flex items-center gap-3 p-3 bg-slate-900/90 rounded-2xl border border-slate-800 hover:border-red-600/50 transition-colors">
+                          <span className="w-2.5 h-2.5 rounded-full bg-red-600 flex-shrink-0 shadow-sm shadow-red-500"></span>
+                          <span className="text-xs font-black text-slate-100 uppercase tracking-wide">{beardStyle}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             
             {/* Grid de Peinados */}
             <div className="flex overflow-x-auto pb-4 gap-4 scrollbar-none -mx-4 px-4 sm:-mx-6 sm:px-6 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-4 sm:gap-4 scroll-smooth snap-x">
@@ -296,19 +371,34 @@ const VirtualMirror: React.FC<VirtualMirrorProps> = (props) => {
                         e.stopPropagation();
                         if (imgUrl) toggleFavorite(style, imgUrl);
                       }}
+                      onShareImage={(e) => {
+                        e.stopPropagation();
+                        handleTriggerShare(imgUrl, style);
+                      }}
                       lighting={props.activeLighting}
                       hairColor={props.activeColor}
                       highlights={props.activeHighlights}
                     />
                     
-                    {imgUrl && (
-                      <button 
-                        onClick={() => setActiveComparisonStyleIdx(i)}
-                        className={`w-full py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider border transition-colors ${activeComparisonStyleIdx === i ? 'bg-red-600 text-white border-red-600' : 'bg-white hover:bg-slate-50 text-slate-600 border-slate-200'}`}
-                      >
-                        {activeComparisonStyleIdx === i ? 'Comparando...' : '🔍 Comparar Deslizable'}
-                      </button>
-                    )}
+                    <div className="flex gap-1.5">
+                      {imgUrl && (
+                        <button 
+                          onClick={() => setActiveComparisonStyleIdx(i)}
+                          className={`flex-1 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider border transition-colors ${activeComparisonStyleIdx === i ? 'bg-red-600 text-white border-red-600' : 'bg-white hover:bg-slate-50 text-slate-600 border-slate-200'}`}
+                        >
+                          {activeComparisonStyleIdx === i ? 'Comparando...' : '🔍 Comparar'}
+                        </button>
+                      )}
+                      {imgUrl && (
+                        <button 
+                          onClick={() => handleTriggerShare(imgUrl, style)}
+                          className="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider bg-slate-900 text-white hover:bg-red-600 transition-colors flex items-center gap-1 shadow-sm"
+                          title="Compartir en Redes Sociales"
+                        >
+                          <span>📲</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -397,7 +487,7 @@ const VirtualMirror: React.FC<VirtualMirrorProps> = (props) => {
         </div>
 
         {/* Acciones del Espejo */}
-        <div className="flex flex-col md:flex-row gap-4 justify-center max-w-xl mx-auto pt-4">
+        <div className="flex flex-col md:flex-row gap-4 justify-center max-w-2xl mx-auto pt-4">
           <button 
             onClick={props.onUploadNew} 
             className="flex-1 py-4 bg-white border-2 border-slate-200 text-slate-900 font-black uppercase text-[10px] tracking-widest rounded-2xl hover:bg-slate-50 transition-all shadow-sm"
@@ -411,14 +501,192 @@ const VirtualMirror: React.FC<VirtualMirrorProps> = (props) => {
             <span>🔄</span> Regenerar Todo
           </button>
           <button 
+            onClick={() => handleTriggerShare(activeSliderImage || props.generatedImages[startIndex] || props.generatedImages.find(img => img !== null) || null, 'Mi Cambio de Look')}
+            className="flex-1 py-4 bg-red-600 hover:bg-red-700 text-white font-black uppercase text-[10px] tracking-widest rounded-2xl transition-all shadow-lg shadow-red-600/25 flex items-center justify-center gap-1.5"
+          >
+            <span>📲</span> Compartir Redes
+          </button>
+          <button 
             onClick={props.onShare} 
-            className="flex-1 py-4 bg-red-600 hover:bg-red-700 text-white font-black uppercase text-[10px] tracking-widest rounded-2xl transition-all shadow-lg shadow-red-600/25"
+            className="flex-1 py-4 bg-slate-800 hover:bg-slate-700 text-white font-black uppercase text-[10px] tracking-widest rounded-2xl transition-all shadow-md"
           >
             Sincronizar Galería
           </button>
         </div>
 
       </div>
+
+      {/* Modal de Bloqueo de Redes Sociales para Plan Freemium */}
+      {showFreemiumLockModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 text-center space-y-4 shadow-2xl border border-slate-100">
+            <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center text-3xl mx-auto shadow-inner">
+              🔒
+            </div>
+            <div>
+              <span className="text-[9px] font-black text-red-600 uppercase tracking-widest block mb-1">Función Exclusiva para Plan de Pago</span>
+              <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Compartir en Redes Sociales No Disponible</h3>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed font-medium">
+              El intercambio directo de simulaciones en <strong>WhatsApp, Facebook, Twitter e Instagram</strong> está restringido en el plan gratuito.
+            </p>
+            <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tu Plan Actual:</span>
+              <span className="px-2.5 py-1 bg-amber-100 text-amber-800 rounded-full text-[9px] font-black uppercase tracking-widest">Plan Freemium</span>
+            </div>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+              Actualiza a un Plan Básico o Profesional para permitir que tus clientes viralicen sus cortes de cabello en redes sociales.
+            </p>
+            <div className="pt-2">
+              <button 
+                onClick={() => setShowFreemiumLockModal(false)}
+                className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-black uppercase text-[10px] tracking-widest rounded-2xl transition-colors shadow-md"
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Compartir en Redes Sociales para Planes de Pago */}
+      {showShareModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-5 shadow-2xl border border-slate-100 relative">
+            <button 
+              onClick={() => setShowShareModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 bg-slate-100 p-2 rounded-full font-bold text-xs"
+            >
+              ✕
+            </button>
+
+            <div>
+              <span className="text-[9px] font-black text-red-600 uppercase tracking-widest block mb-1">📲 Difusión Viral en Redes</span>
+              <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Compartir Cambio de Look</h3>
+              <p className="text-xs text-slate-500 font-medium">Difunde el resultado en tus perfiles sociales o envíalo directamente por mensaje.</p>
+            </div>
+
+            {shareTargetImage && (
+              <div className="relative w-full aspect-[3/4] max-h-56 bg-slate-100 rounded-2xl overflow-hidden shadow border border-slate-200 mx-auto">
+                <img src={shareTargetImage} alt={shareTargetStyle || 'Estilo'} className="w-full h-full object-cover" />
+                <div className="absolute bottom-2 left-2 bg-slate-950/80 backdrop-blur-sm text-white text-[9px] px-2 py-1 rounded-lg font-black uppercase tracking-widest">
+                  {shareTargetStyle || 'Estilo Seleccionado'}
+                </div>
+              </div>
+            )}
+
+            {/* Grid de Opciones Sociales */}
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <button 
+                onClick={() => {
+                  const shareText = `¡Mira mi nuevo corte "${shareTargetStyle || 'Estilo'}" en ${props.shopName}! 💈✨ Probado con Barber AI.`;
+                  window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`, '_blank');
+                }}
+                className="flex items-center gap-3 p-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-2xl border border-emerald-200 transition-all font-bold text-xs text-left"
+              >
+                <span className="text-xl">💬</span>
+                <div>
+                  <p className="font-black text-[11px] uppercase tracking-wide">WhatsApp</p>
+                  <p className="text-[9px] text-emerald-600 font-medium">Enviar chat directo</p>
+                </div>
+              </button>
+
+              <button 
+                onClick={() => {
+                  const url = window.location.href;
+                  window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank');
+                }}
+                className="flex items-center gap-3 p-3 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded-2xl border border-blue-200 transition-all font-bold text-xs text-left"
+              >
+                <span className="text-xl">📘</span>
+                <div>
+                  <p className="font-black text-[11px] uppercase tracking-wide">Facebook</p>
+                  <p className="text-[9px] text-blue-600 font-medium">Publicar en muro</p>
+                </div>
+              </button>
+
+              <button 
+                onClick={() => {
+                  const shareText = `¡Probando mi cambio de look en ${props.shopName} con Barber AI! 💈✨`;
+                  window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(window.location.href)}`, '_blank');
+                }}
+                className="flex items-center gap-3 p-3 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl transition-all font-bold text-xs text-left"
+              >
+                <span className="text-xl">🐦</span>
+                <div>
+                  <p className="font-black text-[11px] uppercase tracking-wide">X / Twitter</p>
+                  <p className="text-[9px] text-slate-300 font-medium">Publicar tweet</p>
+                </div>
+              </button>
+
+              {typeof navigator !== 'undefined' && 'share' in navigator ? (
+                <button 
+                  onClick={() => {
+                    navigator.share({
+                      title: `Nuevo Look en ${props.shopName}`,
+                      text: `¡Mira mi cambio de look en ${props.shopName}!`,
+                      url: window.location.href
+                    }).catch(() => {});
+                  }}
+                  className="flex items-center gap-3 p-3 bg-red-50 hover:bg-red-100 text-red-800 rounded-2xl border border-red-200 transition-all font-bold text-xs text-left"
+                >
+                  <span className="text-xl">📲</span>
+                  <div>
+                    <p className="font-black text-[11px] uppercase tracking-wide">Compartir Nativo</p>
+                    <p className="text-[9px] text-red-600 font-medium">Menu del dispositivo</p>
+                  </div>
+                </button>
+              ) : (
+                <button 
+                  onClick={() => {
+                    if (shareTargetImage) {
+                      const link = document.createElement('a');
+                      link.href = shareTargetImage;
+                      link.download = `corte-${shareTargetStyle || 'estilo'}.jpg`;
+                      link.click();
+                    }
+                  }}
+                  className="flex items-center gap-3 p-3 bg-purple-50 hover:bg-purple-100 text-purple-800 rounded-2xl border border-purple-200 transition-all font-bold text-xs text-left"
+                >
+                  <span className="text-xl">⬇️</span>
+                  <div>
+                    <p className="font-black text-[11px] uppercase tracking-wide">Descargar Foto</p>
+                    <p className="text-[9px] text-purple-600 font-medium">Guardar en dispositivo</p>
+                  </div>
+                </button>
+              )}
+            </div>
+
+            <div className="pt-2 flex gap-2">
+              <button 
+                onClick={() => {
+                  navigator.clipboard.writeText(window.location.href);
+                  setCopySuccess(true);
+                  setTimeout(() => setCopySuccess(false), 2500);
+                }}
+                className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-black uppercase text-[10px] tracking-widest rounded-2xl transition-colors flex items-center justify-center gap-1.5"
+              >
+                <span>📋</span> {copySuccess ? '¡Enlace Copiado!' : 'Copiar Enlace'}
+              </button>
+              <button 
+                onClick={() => {
+                  if (shareTargetImage) {
+                    const link = document.createElement('a');
+                    link.href = shareTargetImage;
+                    link.download = `corte-${shareTargetStyle || 'estilo'}.jpg`;
+                    link.click();
+                  }
+                }}
+                className="py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white font-black uppercase text-[10px] tracking-widest rounded-2xl transition-colors"
+                title="Descargar Foto"
+              >
+                ⬇️
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

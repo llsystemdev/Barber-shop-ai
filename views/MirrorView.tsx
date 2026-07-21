@@ -14,6 +14,7 @@ interface MirrorViewProps {
     generatedImages: (string | null)[];
     suggestedStyles: string[];
     analysisResult: string | null;
+    analysisData?: any;
     isGeneratingImages: boolean[];
     activeAngle: 'front' | 'side' | 'threeQuarter';
     plan: 'Freemium' | 'Básico' | 'Profesional'; // Added plan prop
@@ -64,6 +65,7 @@ const MirrorView: React.FC<MirrorViewProps> = (props) => {
                 generatedImages={props.generatedImages} 
                 styleNames={props.suggestedStyles} 
                 analysisResult={props.analysisResult}
+                analysisData={props.analysisData}
                 isLoading={props.isGeneratingImages}
                 activeAngle={props.activeAngle}
                 plan={props.plan} // Pass plan
