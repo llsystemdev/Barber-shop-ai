@@ -314,16 +314,23 @@ async function startServer() {
             let sideData: { data: string; mimeType: string } | null = null;
 
             // Process direct base64 payloads if provided
-            if (frontImage?.data && sideImage?.data) {
+            if (frontImage?.data) {
                 frontData = {
                     data: frontImage.data.includes(',') ? frontImage.data.split(',')[1] : frontImage.data,
                     mimeType: getStandardMimeType(frontImage.mimeType || 'image/jpeg')
                 };
+            }
+            if (sideImage?.data) {
                 sideData = {
                     data: sideImage.data.includes(',') ? sideImage.data.split(',')[1] : sideImage.data,
                     mimeType: getStandardMimeType(sideImage.mimeType || 'image/jpeg')
                 };
-                console.log('[STEP 2] Imagen validada en /api/analyze (usando payloads base64 directos)');
+            } else if (frontData) {
+                sideData = frontData;
+            }
+
+            if (frontData) {
+                console.log('[STEP 2] Imagen frontal validada en /api/analyze (usando payloads base64 directos)');
             }
 
             // Fallback to downloading from storage URLs
@@ -332,15 +339,19 @@ async function startServer() {
                 frontData = await fetchImageAsBase64(frontImageUrl);
                 console.log('[STEP 5] URL verificada para foto frontal en /api/analyze');
             }
-            if (!sideData && sideImageUrl) {
-                console.log(`[Visagismo AI] Fetching side image from URL: ${sideImageUrl}`);
-                sideData = await fetchImageAsBase64(sideImageUrl);
+            if (!sideData && (sideImageUrl || frontImageUrl)) {
+                const targetUrl = sideImageUrl || frontImageUrl;
+                console.log(`[Visagismo AI] Fetching side image from URL: ${targetUrl}`);
+                sideData = await fetchImageAsBase64(targetUrl);
                 console.log('[STEP 5] URL verificada para foto de perfil en /api/analyze');
             }
 
-            if (!frontData || !sideData) {
-                console.error('[STEP 2 FAILED] Las imágenes de frente y perfil son requeridas y no pudieron ser obtenidas.');
-                return res.status(400).json({ error: "Se requieren ambas fotografías (frente y perfil) para realizar el análisis de visagismo." });
+            if (!frontData) {
+                console.error('[STEP 2 FAILED] La fotografía frontal es requerida y no pudo ser obtenida.');
+                return res.status(400).json({ error: "Se requiere la fotografía frontal para realizar el análisis de visagismo." });
+            }
+            if (!sideData) {
+                sideData = frontData;
             }
 
             console.log('[STEP 2] Imagen validada con éxito en /api/analyze');
@@ -519,7 +530,7 @@ async function startServer() {
                 const cleanMaster = masterReferenceImage.includes(',') 
                     ? masterReferenceImage.split(',')[1] 
                     : masterReferenceImage;
-                masterPart = { inlineData: { data: cleanMaster, mimeType: 'image/jpeg' } };
+                masterPart = { inlineData: { data: cleanMaster, mimeType: 'image/png' } };
             }
 
             if (type === 'style') {
@@ -529,7 +540,7 @@ async function startServer() {
                     'Tres Cuartos': 'tres cuartos (three-quarter view)',
                 }[angle as string] || 'frontal';
 
-                const lightingInstruction = lighting !== 'Natural' ? `La iluminación del ambiente debe ser '${lighting}' (por ejemplo, ajustando sombras, exposición, temperatura y contraste para lograr este ambiente de luz).` : 'La iluminación debe ser natural y suave.';
+                const lightingInstruction = lighting !== 'Natural' ? `Aplica un filtro de iluminación '${lighting}' focalizado directamente en la cabellera para realzar el brillo, contraste, relieve y textura del peinado '${style}'. MANTÉN INTACTO e inalterado el tono de piel del rostro, los ojos y la ropa.` : 'Usa una iluminación natural y equilibrada centrada en destacar la textura del peinado.';
 
                 if (masterPart) {
                     prompt = `
@@ -542,19 +553,19 @@ async function startServer() {
                     El resultado debe ser una simulación fotorrealista impecable en donde el cliente de la Imagen 1 tiene el corte de la Imagen 2, pero adaptado y rotado perfectamente a la perspectiva '${angleInstruction}'.
                     
                     Instrucciones estrictas de consistencia:
-                    1. NO diseñes un peinado nuevo. Mantén de manera idéntica la longitud, el nivel de degradado (fade), la textura, el volumen superior, las patillas, el color de cabello y la barba de la Imagen 2. Debe parecer exactamente la misma persona en una sesión fotográfica profesional de múltiples ángulos (photoshoot).
+                    1. NO diseñes un peinado nuevo. Mantén de manera idéntica la longitud, el nivel de degradado (fade), la textura, el volumen superior, las patillas, el color de cabello y la barba de la Imagen 2.
                     2. Adapta la geometría del peinado de la Imagen 2 de forma tridimensional y natural para que coincida perfectamente con la perspectiva '${angleInstruction}' de la cabeza en la Imagen 1.
-                    3. Conserva intactas todas las facciones, estructura ósea, ojos, nariz y orejas del cliente original de la Imagen 1. No alteres su rostro, solo aplica el peinado.
-                    4. Aplica el filtro de iluminación solicitado: ${lightingInstruction} Esta iluminación debe modificar únicamente la luz ambiental, exposición, temperatura y sombras del peinado y escena, sin alterar la forma, diseño ni estructura del corte.
+                    3. Conserva intactas todas las facciones, estructura ósea, tono de piel, ojos, nariz, boca y orejas del cliente original de la Imagen 1. No alteres su rostro, su tez ni su ropa.
+                    4. Aplica el filtro de iluminación solicitado ÚNICAMENTE AL CABELLO: ${lightingInstruction} Esta iluminación debe modificar únicamente los destellos, reflejos y relieve del cabello, sin teñir ni alterar el tono de la cara, la piel o la ropa.
                     `;
                 } else {
                     const angleText = {
                         'Frente': 'frontal (front view)',
                         'Perfil': 'de perfil (side view)',
-                        'Tres Cuartos': 'de tres cuartos (three-quarter view)',
+                        'Tres Cuartos': 'de three-quarter view',
                     }[angle as string] || 'frontal';
                     
-                    const lightingText = lighting !== 'Natural' ? `La iluminación del ambiente debe ser '${lighting}' (por ejemplo, ajustando sombras, exposición, temperatura y contraste para lograr este ambiente de luz).` : 'La iluminación debe ser natural y suave.';
+                    const lightingText = lighting !== 'Natural' ? `Aplica iluminación de tipo '${lighting}' orientada al cabello para destacar el peinado, brillo y definición de los mechones.` : 'Usa una iluminación natural focalizada en el cabello.';
                     
                     prompt = `
                     Estás actuando como un estilista de cabello y barbero profesional de alta gama en una sesión fotográfica de estudio.
@@ -563,30 +574,55 @@ async function startServer() {
                     Instrucciones de diseño críticas:
                     1. Aplica el peinado '${style}' adaptándolo de forma natural a las facciones y forma de la cabeza en la foto, con transiciones, volumen y degradados (fade) limpios.
                     2. La vista o ángulo de destino de la cabeza debe ser ${angleText}.
-                    3. Conserva de manera fotorrealista e intacta toda la estructura ósea, ojos, nariz, boca, orejas y rasgos faciales de la persona de la foto. No alteres su rostro ni su identidad.
-                    4. Aplica el filtro de iluminación solicitado: ${lightingText} La iluminación debe cambiar únicamente la luz ambiental, exposición, sombras y contraste de la escena, sin modificar la estructura ni diseño del cabello.
+                    3. Conserva de manera fotorrealista e intacta toda la estructura ósea, tono de piel, ojos, nariz, boca, orejas, ropa y rasgos faciales de la persona de la foto. No alteres su rostro ni su identidad.
+                    4. Iluminación y filtros: ${lightingText} MANTÉN 100% INTACTO e INALTERADO el tono de piel del rostro, la ropa y el fondo de la fotografía. El filtro de luz debe aplicarse al cabello para resaltar sus mechones y relieve.
                     `;
                 }
             
             } else if (type === 'color') {
                 if (masterPart) {
                     prompt = `
-                    Cambia el color del cabello de la persona en la foto a ${color}.
+                    Estás actuando como un colorista capilar profesional.
+                    Tu única tarea es cambiar el tono de base/color DEL CABELLO de la persona a ${color}.
                     Como referencia, la Imagen 2 muestra el peinado y corte actual del cliente.
-                    Modifica únicamente el color del cabello del cliente a ${color}, manteniendo el peinado, corte, textura y rasgos faciales de forma fotorrealista.
+                    
+                    INSTRUCCIONES DE APLICACIÓN EXCLUSIVA AL CABELLO:
+                    1. Cambia ÚNICAMENTE el color de las hebras de cabello (y barba si aplica) al tono de base ${color}.
+                    2. Mantén intactos el peinado, corte, textura y volumen de la Imagen 2.
+                    3. CRÍTICO: MANTÉN 100% INTACTOS e INALTERADOS el tono de piel del rostro, la tez, los ojos, la boca, la ropa y el fondo de la fotografía. No apliques ningun tinte ni filtro de color a la piel ni a la ropa.
                     `;
                 } else {
-                    prompt = `Cambia el color del cabello de la persona en la foto a ${color}. El resultado debe ser fotorrealista, manteniendo el peinado y los rasgos faciales.`;
+                    prompt = `
+                    Estás actuando como un colorista capilar profesional.
+                    Cambia el tono de base/color ÚNICAMENTE DEL CABELLO de la persona en la foto a ${color}.
+                    
+                    INSTRUCCIONES DE APLICACIÓN EXCLUSIVA AL CABELLO:
+                    1. Aplica el color ${color} exclusivamente en las hebras del cabello (y barba si aplica).
+                    2. MANTÉN 100% INTACTOS e INALTERADOS el tono de piel, la tez del rostro, los ojos, la ropa y el fondo de la foto. No tinas la piel ni la cara.
+                    3. El resultado debe ser fotorrealista, conservando el peinado y los rasgos faciales originales.
+                    `;
                 }
             } else if (type === 'highlights') {
                 if (masterPart) {
                     prompt = `
-                    Añade mechas de color '${color}' al cabello del cliente en la foto.
+                    Estás actuando como un especialista en mechas y reflejos de barbería/peluquería.
+                    Añade mechas de color '${color}' ÚNICAMENTE en mechones seleccionados del cabello del cliente.
                     Como referencia, la Imagen 2 muestra el peinado y corte actual del cliente.
-                    Añade las mechas de forma fotorrealista e impecable, manteniendo el peinado, corte y color base de la Imagen 2.
+                    
+                    INSTRUCCIONES DE APLICACIÓN EXCLUSIVA A LAS MECHAS DEL CABELLO:
+                    1. Añade reflejos y mechas de color '${color}' distribuidos de forma natural sobre el cabello, conservando el color base y peinado de la Imagen 2.
+                    2. CRÍTICO: MANTÉN 100% INTACTO e INALTERADO el tono de piel, el rostro, los ojos, la ropa y el fondo de la foto. Las mechas se aplican de forma exclusiva a los mechones de pelo.
                     `;
                 } else {
-                    prompt = `Añade mechas de color '${color}' al cabello en la foto. El resultado debe ser fotorrealista, manteniendo el peinado y el color base.`;
+                    prompt = `
+                    Estás actuando como un especialista en mechas y reflejos capilares.
+                    Añade mechas de color '${color}' ÚNICAMENTE a los mechones del cabello en la foto.
+                    
+                    INSTRUCCIONES DE APLICACIÓN EXCLUSIVA A LAS MECHAS DEL CABELLO:
+                    1. Aplica las mechas y reflejos del color '${color}' exclusivamente en hebras de cabello seleccionadas.
+                    2. MANTÉN 100% INTACTOS e INALTERADOS el tono de piel, los rasgos faciales, la ropa y el fondo. No tinas la piel ni alteres el entorno.
+                    3. El resultado debe ser fotorrealista, manteniendo el peinado y el tono base del cabello.
+                    `;
                 }
             }
 

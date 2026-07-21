@@ -37,8 +37,8 @@ function getFallbackSvgDataUri(title: string, subtitle: string, hairColor = '#ef
 
 export async function getStyleRecommendations(
     frontImageUrl: string, 
-    sideImageUrl: string, 
-    shop: BarberShop, 
+    sideImageUrl?: string, 
+    shop?: BarberShop, 
     userId?: string,
     frontImage?: { data: string, mimeType: string },
     sideImage?: { data: string, mimeType: string }
@@ -49,11 +49,11 @@ export async function getStyleRecommendations(
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 frontImageUrl,
-                sideImageUrl,
+                sideImageUrl: sideImageUrl || frontImageUrl,
                 shop,
                 userId,
                 frontImage,
-                sideImage
+                sideImage: sideImage || frontImage
             })
         });
 

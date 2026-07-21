@@ -6,7 +6,7 @@ import PhotoUploader from '../components/PhotoUploader';
 interface MirrorViewProps {
     appState: 'initial' | 'processing' | 'results';
     isAiLoading: boolean;
-    onPhotosReady: (front: File, side: File) => void;
+    onPhotosReady: (front: File, side?: File) => void;
     currentShopName: string;
     aiName: string;
     frontUserImageUrl: string | null;

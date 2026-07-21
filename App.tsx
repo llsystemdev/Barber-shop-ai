@@ -419,7 +419,8 @@ const App: React.FC = () => {
 
   const currentShop = (activeShopId && shops.find(s => s.id === activeShopId)) || shops[0] || defaultDemoShop;
 
-  const handlePhotosReady = async (front: File, side: File) => {
+  const handlePhotosReady = async (front: File, side?: File) => {
+      const actualSide = side || front;
       if (currentUser?.isGuest) {
           if (guestSimulationsCount >= 3) {
               setShowGuestLimitModal(true);
@@ -433,9 +434,9 @@ const App: React.FC = () => {
       setMirrorState('processing');
       setAnalysisError(null);
       try {
-          console.log('[Visagismo AI] Comprimiendo y redimensionando fotos del cliente para optimizar rendimiento...');
+          console.log('[Visagismo AI] Comprimiendo y redimensionando foto del cliente para optimizar rendimiento...');
           const compressedFront = await compressImage(front, 800, 800, 0.8);
-          const compressedSide = await compressImage(side, 800, 800, 0.8);
+          const compressedSide = side ? await compressImage(actualSide, 800, 800, 0.8) : compressedFront;
 
           // Convert files to base64 payloads to offer a 100% reliable direct transmission bypass to the server
           const fileToBase64Payload = async (file: File): Promise<{ data: string, mimeType: string }> => {

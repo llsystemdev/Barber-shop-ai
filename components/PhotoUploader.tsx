@@ -185,7 +185,7 @@ const PhotoSlot: React.FC<PhotoSlotProps> = ({ label, onFileSelect, icon, captur
 };
 
 interface PhotoUploaderProps {
-  onPhotosReady: (front: File, side: File) => void;
+  onPhotosReady: (front: File, side?: File) => void;
   isProcessing: boolean;
   isGuest?: boolean;
   simulationsCount?: number;
@@ -194,7 +194,6 @@ interface PhotoUploaderProps {
 
 export const PhotoUploader: React.FC<PhotoUploaderProps> = ({ onPhotosReady, isProcessing, isGuest, simulationsCount = 0, error }) => {
   const [frontPhoto, setFrontPhoto] = useState<File | null>(null);
-  const [sidePhoto, setSidePhoto] = useState<File | null>(null);
 
   const FrontIcon = (
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-full h-full">
@@ -202,21 +201,15 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({ onPhotosReady, isP
     </svg>
   );
 
-  const SideIcon = (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-full h-full">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.5v15a2.25 2.25 0 002.25 2.25h12a2.25 2.25 0 002.25-2.25v-15A2.25 2.25 0 0018 2.25h-1.5a2.25 2.25 0 00-2.25 2.25v.75m-6.75-.75v.75a2.25 2.25 0 01-2.25-2.25H6A2.25 2.25 0 003.75 4.5zM12 12.75a3 3 0 100-6 3 3 0 000 6z" />
-    </svg>
-  );
-
   const remaining = Math.max(0, 3 - simulationsCount);
 
   return (
-    <div className="w-full h-full flex flex-col items-center justify-center p-4">
-        <h2 className="text-2xl font-bold text-gray-800 mb-2">Descubre tu Estilo Ideal</h2>
-        <p className="text-gray-600 mb-4 text-center">Sube dos fotos para una recomendación de IA personalizada.</p>
+    <div className="w-full h-full flex flex-col items-center justify-center p-4 sm:p-8 my-auto">
+        <h2 className="text-2xl sm:text-3xl font-black text-gray-900 mb-2 text-center tracking-tight">Descubre tu Estilo Ideal</h2>
+        <p className="text-gray-600 mb-6 text-center text-sm max-w-md">Sube tu foto de frente para recibir una recomendación de IA personalizada y probar tus cortes en el Espejo Virtual.</p>
         
         {error && (
-          <div className="w-full max-w-md bg-red-50 border-2 border-red-200 text-red-700 font-black px-5 py-3 rounded-2xl text-[10px] uppercase tracking-wider text-center mb-6 animate-pulse">
+          <div className="w-full max-w-xs bg-red-50 border-2 border-red-200 text-red-700 font-black px-5 py-3 rounded-2xl text-[10px] uppercase tracking-wider text-center mb-6 animate-pulse">
             ⚠️ {error}
           </div>
         )}
@@ -227,16 +220,15 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({ onPhotosReady, isP
           </div>
         )}
 
-        <div className="w-full max-w-md grid grid-cols-2 gap-4 mb-6">
+        <div className="w-full max-w-xs mb-6">
             <PhotoSlot label="Foto de Frente" onFileSelect={setFrontPhoto} icon={FrontIcon} captureMode="user" />
-            <PhotoSlot label="Foto de Perfil" onFileSelect={setSidePhoto} icon={SideIcon} captureMode="environment" />
         </div>
         <button
-            onClick={() => onPhotosReady(frontPhoto!, sidePhoto!)}
-            disabled={!frontPhoto || !sidePhoto || isProcessing}
-            className="w-full max-w-md bg-red-600 text-white font-bold py-3 px-10 rounded-lg text-lg hover:bg-red-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:bg-red-300 disabled:cursor-not-allowed shadow-lg"
+            onClick={() => onPhotosReady(frontPhoto!, frontPhoto!)}
+            disabled={!frontPhoto || isProcessing}
+            className="w-full max-w-xs bg-red-600 text-white font-bold py-3.5 px-8 rounded-xl text-base hover:bg-red-700 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:bg-red-300 disabled:cursor-not-allowed shadow-lg hover:shadow-red-600/20 active:scale-[0.99]"
         >
-            {isProcessing ? 'Analizando...' : 'Analizar mis fotos'}
+            {isProcessing ? 'Analizando...' : 'Analizar mi foto'}
         </button>
     </div>
   );
