@@ -138,7 +138,8 @@ export async function generateStyledImage(
                 angle,
                 lighting,
                 type,
-                color: targetColor,
+                color,
+                highlights,
                 masterReferenceImage
             })
         });

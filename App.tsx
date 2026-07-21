@@ -707,14 +707,77 @@ const App: React.FC = () => {
       }
   };
 
+  const getColorLabel = (colorHex?: string): string | undefined => {
+      if (!colorHex || colorHex === 'natural' || colorHex === 'none') return undefined;
+      const map: Record<string, string> = {
+          '#c9a15b': 'Rubio',
+          '#1a1a1a': 'Negro',
+          '#4a3728': 'Chocolate',
+          '#8b0000': 'Rojo Cobrizo',
+          '#000033': 'Azul',
+          '#ffffff': 'Platinado',
+          '#fef08a': 'Rubio Dorado',
+          '#fb923c': 'Cobrizo',
+          '#ef4444': 'Rojo',
+          '#3b82f6': 'Azul'
+      };
+      return map[colorHex] || colorHex;
+  };
+
+  const regenerateBatchForFilter = (
+      angle: 'front' | 'side' | 'threeQuarter',
+      lighting: string,
+      colorHex?: string,
+      highlightsHex?: string
+  ) => {
+      const startIndex = angle === 'front' ? 0 : angle === 'side' ? 4 : 8;
+      const angleLabel = angle === 'front' ? 'Frente' : angle === 'side' ? 'Perfil' : 'Tres Cuartos';
+      const colorLabel = getColorLabel(colorHex);
+      const highlightsLabel = getColorLabel(highlightsHex);
+      const targetUserImage = angle === 'side' ? sideImage : frontImage;
+
+      if (!targetUserImage || suggestedStyles.length === 0) return;
+
+      const sessionId = Date.now().toString();
+      currentSessionIdRef.current = sessionId;
+
+      suggestedStyles.forEach((style, i) => {
+          const slotIndex = startIndex + i;
+          const masterRef = generatedImages[i] || undefined;
+          triggerImageGeneration(
+              slotIndex,
+              style,
+              angleLabel,
+              lighting,
+              targetUserImage,
+              colorLabel,
+              highlightsLabel,
+              masterRef,
+              sessionId
+          );
+      });
+  };
+
+  const handleAngleChange = (newAngle: 'front' | 'side' | 'threeQuarter') => {
+      setActiveAngle(newAngle);
+      regenerateBatchForFilter(newAngle, activeLighting, activeColor, activeHighlights);
+  };
+
+  const handleLightingChange = (newLighting: string) => {
+      setActiveLighting(newLighting);
+      regenerateBatchForFilter(activeAngle, newLighting, activeColor, activeHighlights);
+  };
+
   const handleColorChange = (newColor: string) => {
       const colorToSet = activeColor === newColor ? undefined : newColor;
       setActiveColor(colorToSet);
+      regenerateBatchForFilter(activeAngle, activeLighting, colorToSet, activeHighlights);
   };
 
   const handleHighlightsChange = (newHighlights: string) => {
       const highlightsToSet = activeHighlights === newHighlights ? undefined : newHighlights;
       setActiveHighlights(highlightsToSet);
+      regenerateBatchForFilter(activeAngle, activeLighting, activeColor, highlightsToSet);
   };
 
   const handleSaveResults = async () => {
@@ -929,25 +992,22 @@ const App: React.FC = () => {
                     activeColor={activeColor}
                     activeHighlights={activeHighlights}
                     activeLighting={activeLighting}
-                    onAngleChange={(a) => {
-                        setActiveAngle(a);
-                    }}
-                    onLightingChange={(l) => {
-                        setActiveLighting(l);
-                    }}
+                    onAngleChange={handleAngleChange}
+                    onLightingChange={handleLightingChange}
                     onColorChange={handleColorChange}
                     onHighlightsChange={handleHighlightsChange}
                     onRegenerateImage={(i) => {
                         const angleLabel = activeAngle === 'front' ? 'Frente' : activeAngle === 'side' ? 'Perfil' : 'Tres Cuartos';
+                        const targetUserImage = activeAngle === 'side' ? sideImage : frontImage;
                         triggerImageGeneration(
                             i, 
                             suggestedStyles[i % 4], 
                             angleLabel, 
-                            'Natural', 
-                            undefined, 
-                            undefined, 
-                            undefined, 
-                            undefined, 
+                            activeLighting, 
+                            targetUserImage, 
+                            getColorLabel(activeColor), 
+                            getColorLabel(activeHighlights), 
+                            generatedImages[i % 4] || undefined, 
                             currentSessionIdRef.current || undefined
                         );
                     }}

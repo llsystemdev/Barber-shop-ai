@@ -50,21 +50,6 @@ const ImageCell: React.FC<{
   highlights: string | undefined
 }> = ({ image, styleName, isLoading, isFreemium, isFavorite, watermarkText, onClick, onRegenerate, onToggleFavorite, lighting, hairColor, highlights }) => {
   console.log('[AUDIT LOG 4 - COMPONENT INPUT]', { styleName, hasImage: !!image, imagePreview: image ? image.substring(0, 100) + '...' : 'null', isLoading });
-  // Define CSS filters based on lighting and colors
-  let filterClass = "";
-  if (lighting === 'Estudio') {
-    filterClass += " brightness-105 contrast-110 saturate-105";
-  } else if (lighting === 'Neón') {
-    filterClass += " saturate-125 contrast-105 brightness-95";
-  }
-
-  // Platinum/Black color specific image filters
-  if (hairColor === '#ffffff') {
-    filterClass += " saturate-[0.6] brightness-[1.15] contrast-[1.1]";
-  } else if (hairColor === '#1a1a1a') {
-    filterClass += " brightness-[0.85] contrast-[1.15]";
-  }
-
   return (
     <div className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden shadow-xl group bg-slate-100 border-2 border-transparent hover:border-red-600 hover:shadow-red-500/10 transition-all duration-300">
       <button 
@@ -81,41 +66,10 @@ const ImageCell: React.FC<{
                 <img 
                   src={image} 
                   alt={styleName} 
-                  className={`w-full h-full object-cover transition-all duration-700 group-hover:scale-105 ${filterClass}`} 
+                  className="w-full h-full object-cover transition-all duration-700 group-hover:scale-105" 
                 />
               );
             })()}
-            {/* Base Hair Color Overlay */}
-            {hairColor && hairColor !== 'natural' && hairColor !== '#ffffff' && hairColor !== '#1a1a1a' && (
-              <div 
-                className="absolute inset-0 mix-blend-color opacity-30 pointer-events-none z-10 rounded-2xl"
-                style={{ backgroundColor: hairColor }}
-              />
-            )}
-
-            {/* Highlights Overlay */}
-            {highlights && highlights !== 'none' && (
-              <div 
-                className="absolute inset-0 mix-blend-overlay opacity-35 pointer-events-none z-10 rounded-2xl"
-                style={{ 
-                  background: `radial-gradient(circle at 50% 35%, ${highlights} 0%, transparent 65%)` 
-                }}
-              />
-            )}
-
-            {/* Neon Light Filter Overlay */}
-            {lighting === 'Neón' && (
-              <div 
-                className="absolute inset-0 bg-gradient-to-tr from-indigo-500/15 via-transparent to-rose-500/20 mix-blend-color-dodge pointer-events-none z-10 rounded-2xl"
-              />
-            )}
-
-            {/* Studio Light Filter Overlay */}
-            {lighting === 'Estudio' && (
-              <div 
-                className="absolute inset-0 bg-gradient-to-b from-amber-500/5 to-transparent mix-blend-soft-light pointer-events-none z-10 rounded-2xl"
-              />
-            )}
           </div>
         ) : !isLoading && (
           <div className="w-full h-full flex flex-col items-center justify-center p-4">
@@ -245,43 +199,13 @@ const VirtualMirror: React.FC<VirtualMirrorProps> = (props) => {
             <div className="flex flex-col md:flex-row gap-6 items-center">
               {/* Slider Widget */}
               <div className="relative w-full max-w-sm aspect-[3/4] rounded-2xl overflow-hidden border border-slate-200 shadow-2xl mx-auto">
-                {/* Después (Estilizado con filtros de tiempo real) */}
+                {/* Después (Estilizado) */}
                 <div className="absolute inset-0 w-full h-full">
                   <img 
                     src={activeSliderImage} 
                     alt="Estilizado" 
-                    className={`w-full h-full object-cover pointer-events-none ${
-                      props.activeLighting === 'Estudio' ? 'brightness-105 contrast-110 saturate-105' : 
-                      props.activeLighting === 'Neón' ? 'saturate-125 contrast-105 brightness-95' : ''
-                    } ${
-                      props.activeColor === '#ffffff' ? 'saturate-[0.6] brightness-[1.15] contrast-[1.1]' :
-                      props.activeColor === '#1a1a1a' ? 'brightness-[0.85] contrast-[1.15]' : ''
-                    }`} 
+                    className="w-full h-full object-cover pointer-events-none" 
                   />
-                  {props.activeColor && props.activeColor !== 'natural' && props.activeColor !== '#ffffff' && props.activeColor !== '#1a1a1a' && (
-                    <div 
-                      className="absolute inset-0 mix-blend-color opacity-30 pointer-events-none z-10"
-                      style={{ backgroundColor: props.activeColor }}
-                    />
-                  )}
-                  {props.activeHighlights && props.activeHighlights !== 'none' && (
-                    <div 
-                      className="absolute inset-0 mix-blend-overlay opacity-35 pointer-events-none z-10"
-                      style={{ 
-                        background: `radial-gradient(circle at 50% 35%, ${props.activeHighlights} 0%, transparent 65%)` 
-                      }}
-                    />
-                  )}
-                  {props.activeLighting === 'Neón' && (
-                    <div 
-                      className="absolute inset-0 bg-gradient-to-tr from-indigo-500/15 via-transparent to-rose-500/20 mix-blend-color-dodge pointer-events-none z-10"
-                    />
-                  )}
-                  {props.activeLighting === 'Estudio' && (
-                    <div 
-                      className="absolute inset-0 bg-gradient-to-b from-amber-500/5 to-transparent mix-blend-soft-light pointer-events-none z-10"
-                    />
-                  )}
                 </div>
                 
                 {/* Antes (Original) - clipped beautifully on any screen size */}
