@@ -152,6 +152,10 @@ export async function generateStyledImage(
         }
 
         const data = await response.json();
+        if (data.identityRejected) {
+            console.warn('[Face Identity Guard] Generation rejected because facial identity was shifted:', data.error);
+            throw new Error(data.error || 'La imagen no superó la validación estricta de preservación de identidad facial.');
+        }
         return data.image; // returns base64 image 
     } catch (error) {
         console.warn('generateStyledImage failed, using smart offline fallback image:', error);

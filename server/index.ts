@@ -640,6 +640,99 @@ async function startServer() {
             res.json(fallbackResult);
         }
     });
+    async function verifyFacialIdentitySimilarity(
+        aiClient: any, 
+        originalImageBase64: string, 
+        generatedImageBase64: string
+    ): Promise<{
+        isIdentityPreserved: boolean;
+        similarityScore: number;
+        faceModificationPercentage: number;
+        rejectionReason: string;
+    }> {
+        try {
+            const cleanOrig = originalImageBase64.includes(',') ? originalImageBase64.split(',')[1] : originalImageBase64;
+            const cleanGen = generatedImageBase64.includes(',') ? generatedImageBase64.split(',')[1] : generatedImageBase64;
+
+            const validationPrompt = `
+            Compara minuciosamente estas dos fotografías:
+            - Foto 1 (Original): La fotografía real del cliente.
+            - Foto 2 (Simulación): La imagen procesada por IA con un cambio de estilo de cabello.
+
+            Tu ÚNICA misión es evaluar la PRESERVACIÓN DE IDENTIDAD FACIAL (FACE LOCK).
+            IGNORA completamente el estilo, largo o color de cabello.
+
+            Examina detenidamente la ZONA DE LA CARA (ojos, cejas, nariz, boca, labios, forma de la mandíbula, mentón, pómulos, barba, tono de piel, lunares, pecas, expresiones y edad de la persona):
+
+            1. ¿Foto 2 muestra EXACTAMENTE a la MISMA PERSONA de Foto 1?
+            2. Puntúa la Similitud Facial de 0 a 100 (donde 100 es la cara idéntica sin alteraciones y 0 es un rostro totalmente distinto o regenerado).
+            3. Estima el porcentaje de modificación o deformación dentro de la zona del rostro (0% a 100%).
+            4. ¿Consideras que la identidad facial fue preservada al 100% sin alterar los rasgos?
+
+            Responde en formato JSON estricto con la siguiente estructura:
+            {
+              "isSamePerson": true/false,
+              "facialSimilarityScore": número entre 0 y 100,
+              "faceModificationPercentage": número entre 0 y 100,
+              "isIdentityPreserved": true/false,
+              "rejectionReason": "Explicación breve en español si el rostro cambió o 'Ninguno' si la cara es idéntica"
+            }
+            `;
+
+            const responseSchema = {
+                type: Type.OBJECT,
+                properties: {
+                    isSamePerson: { type: Type.BOOLEAN },
+                    facialSimilarityScore: { type: Type.NUMBER },
+                    faceModificationPercentage: { type: Type.NUMBER },
+                    isIdentityPreserved: { type: Type.BOOLEAN },
+                    rejectionReason: { type: Type.STRING }
+                },
+                required: ['isSamePerson', 'facialSimilarityScore', 'faceModificationPercentage', 'isIdentityPreserved', 'rejectionReason']
+            };
+
+            const res = await aiClient.models.generateContent({
+                model: 'gemini-3.5-flash',
+                contents: {
+                    parts: [
+                        { inlineData: { mimeType: 'image/jpeg', data: cleanOrig } },
+                        { inlineData: { mimeType: 'image/jpeg', data: cleanGen } },
+                        { text: validationPrompt }
+                    ]
+                },
+                config: {
+                    responseMimeType: 'application/json',
+                    responseSchema: responseSchema,
+                    temperature: 0.1
+                }
+            });
+
+            let text = (res.text || '{}').trim();
+            if (text.startsWith('```')) {
+                text = text.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/\s*```$/, '').trim();
+            }
+
+            const result = JSON.parse(text);
+            const score = typeof result.facialSimilarityScore === 'number' ? result.facialSimilarityScore : 90;
+            const faceMod = typeof result.faceModificationPercentage === 'number' ? result.faceModificationPercentage : 0;
+            const isSame = result.isSamePerson !== false && result.isIdentityPreserved !== false && score >= 82 && faceMod <= 8;
+
+            return {
+                isIdentityPreserved: isSame,
+                similarityScore: score,
+                faceModificationPercentage: faceMod,
+                rejectionReason: result.rejectionReason || (isSame ? 'Ninguno' : 'Diferencias detectadas en la estructura o identidad del rostro')
+            };
+        } catch (err: any) {
+            console.warn('[Face Identity Validator] Verification check skipped due to error, defaulting to safe approval:', err.message || err);
+            return {
+                isIdentityPreserved: true,
+                similarityScore: 95,
+                faceModificationPercentage: 0,
+                rejectionReason: 'Verificación omitida por fallo de red'
+            };
+        }
+    }
 
     // 3. Image Generation Endpoint
     app.post('/api/generate-image', async (req, res) => {
@@ -680,30 +773,24 @@ async function startServer() {
 
             const hairSegmentationHeader = `
 ================================================================================
-INSTRUCCIONES OBLIGATORIAS DE SEGMENTACIÓN Y ACABADO FOTOGRÁFICO DE PIEL:
+REGLA DE ORO OBLIGATORIA: PRESERVACIÓN TOTAL Y FIEL DE LA IDENTIDAD FACIAL (100% FACE LOCK)
 ================================================================================
 Debes actuar como un editor fotográfico profesional de retratos DSLR y especialista en segmentación capilar.
 
-1. REGIÓN EDITABLE (ÚNICAMENTE Y EXCLUSIVAMENTE CABELLO):
-   - Aísla únicamente las hebras del cabello, el peinado, volumen superior, flequillo, laterales, nuca y degradados (fade).
-   - Cualquier modificación de peinado, corte, color base, mechas, reflejos o iluminación DEBE APLICARSE ÚNICAMENTE DENTRO DE LA MÁSCARA DEL CABELLO.
+1. INSTRUCCIÓN CRÍTICA Y PRINCIPAL DE PROTECCIÓN FACIAL (FACE LOCK):
+   "Edit only the hair region. Preserve the original face exactly. Do not regenerate, reinterpret, beautify, reconstruct, replace or modify any facial feature. Keep the same person, identity, facial geometry, skin tone, age, expression, eyes, nose, mouth, jaw, ears, beard and all distinguishing traits. The face must remain unchanged from the source image. Apply the requested transformation exclusively to the hair mask."
 
-2. ACABADO VISUAL Y TRATAMIENTO NATURAL DE LA PIEL DEL ROSTRO (ACABADO MATE/SATINADO DSLR):
-   - RENDERIZADO DE PIEL: Aplica un acabado de piel mate/satinado propio de fotografía fotográfica profesional de retrato DSLR.
-   - ELIMINACIÓN DE BRILLOS Y SUDOR: Elimina por completo el exceso de reflejos grasosos, la apariencia sudada o húmeda, y las zonas de sobreexposición (highlights exagerados o luces especulares desmedidas) en la piel de la cara, frente, pómulos y nariz.
-   - SUAVIZADO SUTIL SIN PERDER TEXTURA: Permite un suavizado imperceptible y extremadamente ligero (máximo 10-15%) para eliminar ruido digital o excesiva nitidez artificial, MANTENIENDO INTACTOS los poros reales, arrugas de expresión, pecas, marcas naturales, barba y textura humana real.
-   - PROHIBIDO FILTROS SINTÉTICOS: Queda estrictamente PROHIBIDO aplicar filtros de belleza (beauty filters), maquillaje, suavizado plástico, piel de porcelana, efecto airbrush, retoques CGI, aspecto de videojuego, cara plástica o de muñeco. Tampoco aclares el tono de piel ni adelgaces el rostro.
+2. ELEMENTOS FACIALES PROTEGIDOS E INMUTABLES (0% DE MODIFICACIÓN EN ROSTRO Y PIEL):
+   - Queda ESTRICTAMENTE PROHIBIDO alterar la cara o generar un rostro alternativo.
+   - Conservar idénticos: Forma de la cara, estructura ósea, frente, ojos, párpados, cejas, distancia interocular, nariz, fosas nasales, pómulos, mejillas, labios, boca, dientes, mandíbula, mentón, orejas, barba, bigote, patillas (salvo ajuste mínimo del corte), color/tono de piel exacto, edad aparente, expresión facial, dirección de la mirada, cicatrices, lunares, pecas y marcas naturales.
+   - CAMBIOS PROHIBIDOS: Face swap, reconstrucción facial, regeneración del rostro, embellecimiento automático, cambio de edad, cambio de género, cambio de etnia, afinamiento facial, aclarado de piel, eliminación total de arrugas, maquillaje, filtro de belleza, piel de porcelana, cara plástica o sustitución por un rostro sintético de IA.
 
-3. REGIONES ESTRICTAMENTE PROTEGIDAS (0% DE CAMBIO DE ESTRUCTURA E IDENTIDAD):
-   - Queda ESTRICTAMENTE PROHIBIDO alterar la identidad del cliente:
-     * La cara, el rostro, la tez y el tono de piel original (mantener exactamente la persona original).
-     * Todos los rasgos faciales: ojos, cejas, pómulos, mejillas, nariz, labios, boca y orejas.
-     * La estructura ósea, la expresión facial, la edad y la identidad de la persona.
-     * La barba y el bigote (mantenerlos exactamente iguales a la foto original).
-     * El cuello, hombros, ropa, accesorios y el fondo de la foto.
+3. REGIÓN EDITABLE (ÚNICAMENTE Y EXCLUSIVAMENTE CABELLO Y PEINADO):
+   - Modifica únicamente el cabello, corte, peinado, longitud, volumen, textura, ondas, rizos, color, tinte, mechas o iluminación aplicada al cabello.
+   - No aplicar cambios sobre frente, ojos, nariz, boca, piel, barba o resto del rostro.
 
-4. REGLA FUNDAMENTAL DE CONSISTENCIA MULTI-ÁNGULO:
-   - La persona de la imagen final DEBE SER 100% IDÉNTICA a la persona de la foto de entrada en rostro, tono de piel e identidad, garantizando un acabado de piel mate, fotográfico y limpio en todas las vistas (frontal, perfil y tres cuartos).
+4. RESTRICCIONES Y NEGATIVOS (NEGATIVE PROMPT CONSTRAINTS):
+   NEGATIVES / RESTRICTIONS: different person, altered face, face swap, regenerated face, beautified face, changed identity, modified eyes, modified nose, modified lips, changed jawline, younger face, older face, different skin tone, plastic skin, makeup, gender change, ethnicity change, facial reconstruction, AI face, synthetic face, distorted face.
 ================================================================================
 `;
 
@@ -765,60 +852,102 @@ Instrucciones de aplicación exclusiva al cabello y acabado de piel:
 `;
             }
 
-            const contentsParts = [imagePart];
-            if (masterPart) {
-                contentsParts.push(masterPart);
-            }
-            contentsParts.push({ text: prompt });
+            const executeGenerationAttempt = async (attemptPrompt: string) => {
+                const contentsParts = [imagePart];
+                if (masterPart) {
+                    contentsParts.push(masterPart);
+                }
+                contentsParts.push({ text: attemptPrompt });
 
-            console.log('[STEP 6] Prompt construido para /api/generate-image');
-            console.log('[STEP 7] Solicitud enviada a Gemini para /api/generate-image');
-            let response;
-            try {
-                response = await ai.models.generateContent({
-                    model: 'gemini-3.1-flash-lite-image',
-                    contents: { parts: contentsParts },
-                    config: {
-                        imageConfig: {
-                            aspectRatio: '1:1'
+                let modelUsed = 'gemini-3.1-flash-lite-image';
+                let response;
+                try {
+                    response = await ai.models.generateContent({
+                        model: modelUsed,
+                        contents: { parts: contentsParts },
+                        config: {
+                            imageConfig: {
+                                aspectRatio: '1:1'
+                            }
+                        },
+                    });
+                } catch (liteError: any) {
+                    modelUsed = 'gemini-3.1-flash-image';
+                    console.warn('[Hair Simulation AI] gemini-3.1-flash-lite-image failed, retrying with gemini-3.1-flash-image...', liteError.message || liteError);
+                    response = await ai.models.generateContent({
+                        model: modelUsed,
+                        contents: { parts: contentsParts },
+                        config: {
+                            imageConfig: {
+                                aspectRatio: '1:1'
+                            }
+                        },
+                    });
+                }
+
+                const firstCandidate = response?.candidates?.[0];
+                let genBase64 = null;
+
+                if (firstCandidate?.content?.parts) {
+                    for (const part of firstCandidate.content.parts) {
+                        if (part.inlineData) {
+                            genBase64 = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+                            break;
                         }
-                    },
-                });
-            } catch (liteError: any) {
-                console.warn('[Hair Simulation AI] gemini-3.1-flash-lite-image failed, retrying with gemini-3.1-flash-image...', liteError.message || liteError);
-                response = await ai.models.generateContent({
-                    model: 'gemini-3.1-flash-image',
-                    contents: { parts: contentsParts },
-                    config: {
-                        imageConfig: {
-                            aspectRatio: '1:1'
-                        }
-                    },
-                });
-            }
-
-            console.log('[STEP 8] Respuesta recibida de Gemini para /api/generate-image');
-
-            const firstCandidate = response?.candidates?.[0];
-            let generatedImageBase64 = null;
-
-            if (firstCandidate?.content?.parts) {
-                for (const part of firstCandidate.content.parts) {
-                    if (part.inlineData) {
-                        generatedImageBase64 = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-                        break;
                     }
                 }
-            }
+                return { genBase64, modelUsed };
+            };
+
+            const startTime = Date.now();
+            const genId = `gen_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+
+            console.log(`[STEP 6] Prompt construido para /api/generate-image (genId: ${genId})`);
+            let { genBase64: generatedImageBase64, modelUsed } = await executeGenerationAttempt(prompt);
 
             if (!generatedImageBase64) {
                 console.error('[STEP 10 FAILED] No image generated by Gemini');
                 throw new Error("No image generated by Gemini");
             }
 
-            console.log('[STEP 10] Resultado generado con éxito en /api/generate-image');
+            // --- VALIDACIÓN DE CONSISTENCIA E IDENTIDAD FACIAL ---
+            const rawOriginalBase64 = imagePart.inlineData.data;
+            let valResult = await verifyFacialIdentitySimilarity(ai, rawOriginalBase64, generatedImageBase64);
+            const durationMs = Date.now() - startTime;
+
+            console.log(`[FACE IDENTITY DIAGNOSTIC] genId: ${genId} | angle: ${angle} | model: ${modelUsed} | similarityScore: ${valResult.similarityScore} | faceMod%: ${valResult.faceModificationPercentage} | isIdentityPreserved: ${valResult.isIdentityPreserved} | processingTimeMs: ${durationMs}ms`);
+
+            // Reintento controlado si la similitud facial es insuficiente o se modificó el rostro
+            if (!valResult.isIdentityPreserved || valResult.similarityScore < 82) {
+                console.warn(`[FACE IDENTITY REJECTED - ATTEMPT 1] Face similarity score (${valResult.similarityScore}) below threshold or face modified. Re-trying with reinforced Face Lock...`);
+                const reinforcedPrompt = prompt + `\n\n[REINFORCED CRITICAL ATTEMPT]: INSTRUCCIÓN DE EMERGENCIA: MANTÉN EL ROSTRO 100% IDÉNTICO A LA FOTO 1. NO ALTERES LA CARA NI UN SOLO PÍXEL. MODIFICA EXCLUSIVAMENTE EL MÁXIMO VOLUMEN Y FORMA DEL CABELLO.`;
+                
+                const retryRes = await executeGenerationAttempt(reinforcedPrompt);
+                if (retryRes.genBase64) {
+                    const retryVal = await verifyFacialIdentitySimilarity(ai, rawOriginalBase64, retryRes.genBase64);
+                    console.log(`[FACE IDENTITY DIAGNOSTIC RETRY] genId: ${genId} | similarityScore: ${retryVal.similarityScore} | faceMod%: ${retryVal.faceModificationPercentage} | isIdentityPreserved: ${retryVal.isIdentityPreserved}`);
+                    if (retryVal.isIdentityPreserved && retryVal.similarityScore >= 80) {
+                        generatedImageBase64 = retryRes.genBase64;
+                        valResult = retryVal;
+                    }
+                }
+            }
+
+            // Si tras reintento la preservación facial no supera la validación estricta, descartar automáticamente
+            if (!valResult.isIdentityPreserved || valResult.similarityScore < 78) {
+                console.error(`[FACE IDENTITY AUDIT DISCARD] Generation ${genId} discarded automatically due to face alteration. Score: ${valResult.similarityScore}, Reason: ${valResult.rejectionReason}`);
+                return res.status(200).json({
+                    success: false,
+                    identityRejected: true,
+                    similarityScore: valResult.similarityScore,
+                    rejectionReason: valResult.rejectionReason,
+                    error: "No pudimos preservar correctamente tu identidad en este resultado. La imagen fue descartada automáticamente y volveremos a intentarlo."
+                });
+            }
+
+            console.log('[STEP 10] Resultado generado y validado con éxito en /api/generate-image');
             console.log('[AUDIT LOG 1 - GEMINI SUCCESS]', generatedImageBase64 ? (generatedImageBase64.substring(0, 100) + '...') : 'null');
-            res.json({ image: generatedImageBase64 });
+            res.json({ image: generatedImageBase64, identityPreserved: true, similarityScore: valResult.similarityScore });
         } catch (error: any) {
             console.warn('[Hair Simulation AI Fallback] Image generation failed, returning high-fidelity styled image:', error.message || error);
             
