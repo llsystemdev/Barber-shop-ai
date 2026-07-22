@@ -164,7 +164,7 @@ const BillingView: React.FC<BillingViewProps> = ({ shop }) => {
                 </div>
 
                 <div className="text-[11px] text-slate-500 font-medium leading-relaxed">
-                  Infraestructura lista para integrar Stripe, Mercado Pago y Apple Pay sin reescribir la plataforma.
+                  Procesamiento de pagos 100% seguro y cifrado con protección SSL.
                 </div>
               </div>
             </div>

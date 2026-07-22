@@ -107,7 +107,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, context, c
                     <div className="bg-slate-50 p-6 rounded-2xl border-2 border-slate-100 mb-4">
                         <p className="text-slate-600 font-bold text-sm leading-relaxed">
                             {isChangingPlan 
-                                ? `Estás a punto de suscribirte al plan ${newPlan}. Te redirigiremos de forma segura a la pasarela oficial de Stripe para completar el pago.`
+                                ? `Estás a punto de suscribirte al plan ${newPlan === 'LAUNCH_PRO' ? 'LAUNCH PRO ($1.00 USD/mes)' : newPlan}. Te redirigiremos de forma segura a la pasarela de pago para completar tu suscripción.`
                                 : 'Confirma la actualización de tus datos de facturación para mantener tu cuenta activa.'}
                         </p>
                     </div>
@@ -136,7 +136,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, context, c
                         {isLoading ? (
                             <>
                                 <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
-                                <span>Redirigiendo a Stripe...</span>
+                                <span>Procesando pago seguro...</span>
                             </>
                         ) : (
                             <span>Confirmar {isChangingPlan ? 'Suscripción' : 'Actualización'}</span>
@@ -153,7 +153,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, context, c
             )}
             
             <p className="mt-8 text-center text-slate-400 text-[9px] font-bold uppercase tracking-widest">
-                Pasarela Segura SSL operada por Stripe Inc.
+                Pasarela Segura Cifrada SSL de 256-bit
             </p>
         </div>
     </div>
