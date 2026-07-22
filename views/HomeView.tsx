@@ -162,7 +162,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onShowLogin, onGoHome, onStartGuest
     },
     {
       question: "¿Ofrecen soporte técnico?",
-      answer: "Sí, todos nuestros planes incluyen soporte. El plan Básico cuenta con soporte prioritario vía email, y el plan Profesional incluye asistencia dedicada vía chat y teléfono 24/7."
+      answer: "Sí, todos nuestros usuarios cuentan con soporte. El plan Free incluye soporte vía correo electrónico, mientras que el plan Launch Pro ($1/mes) cuenta con soporte prioritario 24/7."
     }
   ];
 
@@ -491,53 +491,50 @@ const HomeView: React.FC<HomeViewProps> = ({ onShowLogin, onGoHome, onStartGuest
             </span>
           </div>
           
-          <div className="flex overflow-x-auto pb-4 gap-8 scrollbar-none -mx-6 px-6 md:mx-0 md:px-0 md:grid md:grid-cols-3 md:gap-8 max-w-5xl mx-auto scroll-smooth snap-x">
-            <div className="flex-shrink-0 w-[280px] md:w-auto snap-center">
+          {/* Contenedor de Planes (Solo FREE y LAUNCH PRO) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto items-stretch">
+            {/* PLAN FREE */}
+            <div className="flex">
               <PricingCard 
-                plan="Freemium"
+                plan="FREE"
                 price="0"
                 features={[
-                  "10 Análisis de IA / mes",
-                  "Espejo Virtual Básico (Frente)",
-                  "1 Estilista registrado",
-                  "Gestión de agenda básica",
-                  "Soporte comunitario vía email"
+                  "Hasta 10 Análisis de IA / mes",
+                  "Hasta 5 Cambios de corte / mes",
+                  "Hasta 5 Cambios de color / mes",
+                  "Acceso limitado al Espejo Virtual",
+                  "Calidad estándar de imagen",
+                  "Galería e historial limitado",
+                  "Soporte por correo electrónico"
                 ]}
                 onCtaClick={onShowLogin}
                 isFeatured={false}
               />
             </div>
-            <div className="flex-shrink-0 w-[280px] md:w-auto snap-center">
-              <PricingCard 
-                plan="Básico"
-                price={isYearly ? "15" : "19"}
-                isYearlyLabel={isYearly}
-                features={[
-                  "100 Análisis de IA / mes",
-                  "Espejo Virtual avanzado (Frente + Perfil)",
-                  "Hasta 3 Estilistas en equipo",
-                  "Confirmaciones por WhatsApp",
-                  "Soporte técnico por correo"
-                ]}
-                onCtaClick={onShowLogin}
-                isFeatured={true}
-              />
-            </div>
-            <div className="flex-shrink-0 w-[280px] md:w-auto snap-center">
-              <PricingCard 
-                plan="Profesional"
-                price={isYearly ? "39" : "49"}
-                isYearlyLabel={isYearly}
-                features={[
-                  "Análisis de IA ilimitados",
-                  "Propuestas en todos los ángulos",
-                  "Estilistas ilimitados",
-                  "SaaS Whitelabel (Marca Propia)",
-                  "Soporte multicanal 24/7"
-                ]}
-                onCtaClick={onShowLogin}
-                isFeatured={false}
-              />
+
+            {/* PLAN LAUNCH PRO */}
+            <div className="flex relative">
+              <div className="w-full">
+                <PricingCard 
+                  plan="LAUNCH PRO"
+                  price="1"
+                  isYearlyLabel={isYearly}
+                  features={[
+                    "⚡ Oferta de Lanzamiento: USD $1.00 / mes",
+                    "Análisis de IA ilimitados",
+                    "Cortes, Colores y Mechas ilimitados",
+                    "Espejo Virtual ilimitado",
+                    "Historial y Favoritos completos",
+                    "Exportación y Descarga HD máxima calidad",
+                    "Sin marcas de agua en tus fotos",
+                    "Procesamiento con prioridad alta",
+                    "Compartir directo en WhatsApp, IG, FB, TikTok y X",
+                    "Soporte prioritario 24/7"
+                  ]}
+                  onCtaClick={onShowLogin}
+                  isFeatured={true}
+                />
+              </div>
             </div>
           </div>
         </div>

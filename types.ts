@@ -49,7 +49,7 @@ export interface BarberShop {
   gallery: string[];
   services: Service[];
   barbers: Barber[];
-  plan: 'Freemium' | 'Básico' | 'Profesional';
+  plan: 'FREE' | 'LAUNCH_PRO';
   billingHistory: Invoice[];
   paymentMethod: PaymentMethod;
 }
@@ -119,7 +119,7 @@ export interface PlatformStats {
 }
 
 export interface PlanDistribution {
-  name: 'Freemium' | 'Básico' | 'Profesional';
+  name: 'FREE' | 'LAUNCH_PRO';
   count: number;
   color: string;
 }

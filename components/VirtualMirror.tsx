@@ -21,7 +21,7 @@ interface VirtualMirrorProps {
   analysisData?: AnalysisData | null;
   isLoading: boolean[];
   activeAngle: Angle;
-  plan: 'Freemium' | 'Básico' | 'Profesional';
+  plan: 'FREE' | 'LAUNCH_PRO' | 'Freemium' | 'Básico' | 'Profesional';
   shopName: string;
   activeColor: string | undefined;
   activeHighlights: string | undefined;
@@ -56,10 +56,11 @@ const ImageCell: React.FC<{
   onRegenerate: (e: React.MouseEvent) => void,
   onToggleFavorite: (e: React.MouseEvent) => void,
   onShareImage: (e: React.MouseEvent) => void,
+  onDownloadImage: (e: React.MouseEvent) => void,
   lighting: string,
   hairColor: string | undefined,
   highlights: string | undefined
-}> = ({ image, styleName, isLoading, isFreemium, isFavorite, watermarkText, onClick, onRegenerate, onToggleFavorite, onShareImage, lighting, hairColor, highlights }) => {
+}> = ({ image, styleName, isLoading, isFreemium, isFavorite, watermarkText, onClick, onRegenerate, onToggleFavorite, onShareImage, onDownloadImage, lighting, hairColor, highlights }) => {
   console.log('[AUDIT LOG 4 - COMPONENT INPUT]', { styleName, hasImage: !!image, imagePreview: image ? image.substring(0, 100) + '...' : 'null', isLoading });
   return (
     <div className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden shadow-xl group bg-slate-100 border-2 border-transparent hover:border-red-600 hover:shadow-red-500/10 transition-all duration-300">
@@ -115,6 +116,17 @@ const ImageCell: React.FC<{
             </svg>
           </button>
 
+          {/* Botón Descargar Foto */}
+          <button
+            onClick={onDownloadImage}
+            className="bg-emerald-600 text-white p-2 rounded-full shadow-lg hover:scale-110 hover:bg-emerald-700 transition-all"
+            title="Descargar Foto"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+          </button>
+
           {/* Botón Regenerar */}
           <button
             onClick={onRegenerate}
@@ -153,7 +165,7 @@ const ControlPanel: React.FC<{title: string, children: React.ReactNode}> = ({ ti
 
 const VirtualMirror: React.FC<VirtualMirrorProps> = (props) => {
   const startIndex = props.activeAngle === 'front' ? 0 : props.activeAngle === 'side' ? 4 : 8;
-  const isFreemium = props.plan === 'Freemium';
+  const isFreemium = props.plan === 'FREE' || props.plan === 'Freemium';
   const watermarkText = props.shopName.toUpperCase();
 
   // Estados de Comparación Deslizable
@@ -228,12 +240,29 @@ const VirtualMirror: React.FC<VirtualMirrorProps> = (props) => {
                 <span className="text-[9px] font-black text-red-600 uppercase tracking-widest block">HERRAMIENTA PREMIUM</span>
                 <h4 className="text-sm font-black text-slate-900 uppercase">Comparativa de Deslizamiento (Wipe Slider)</h4>
               </div>
-              <button 
-                onClick={() => setActiveComparisonStyleIdx(null)}
-                className="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-xl font-black uppercase tracking-widest transition-colors"
-              >
-                Cerrar Comparador
-              </button>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => {
+                    if (activeSliderImage) {
+                      const link = document.createElement('a');
+                      link.href = activeSliderImage;
+                      link.download = `corte-${(props.styleNames[activeComparisonStyleIdx] || 'estilo').toLowerCase().replace(/\s+/g, '-')}.jpg`;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }
+                  }}
+                  className="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl font-black uppercase tracking-widest transition-colors flex items-center gap-1 shadow-sm"
+                >
+                  <span>⬇️</span> Descargar
+                </button>
+                <button 
+                  onClick={() => setActiveComparisonStyleIdx(null)}
+                  className="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-xl font-black uppercase tracking-widest transition-colors"
+                >
+                  Cerrar
+                </button>
+              </div>
             </div>
 
             <div className="flex flex-col md:flex-row gap-6 items-center">
@@ -375,6 +404,17 @@ const VirtualMirror: React.FC<VirtualMirrorProps> = (props) => {
                         e.stopPropagation();
                         handleTriggerShare(imgUrl, style);
                       }}
+                      onDownloadImage={(e) => {
+                        e.stopPropagation();
+                        if (imgUrl) {
+                          const link = document.createElement('a');
+                          link.href = imgUrl;
+                          link.download = `corte-${style.toLowerCase().replace(/\s+/g, '-')}.jpg`;
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                        }
+                      }}
                       lighting={props.activeLighting}
                       hairColor={props.activeColor}
                       highlights={props.activeHighlights}
@@ -391,8 +431,25 @@ const VirtualMirror: React.FC<VirtualMirrorProps> = (props) => {
                       )}
                       {imgUrl && (
                         <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const link = document.createElement('a');
+                            link.href = imgUrl;
+                            link.download = `corte-${style.toLowerCase().replace(/\s+/g, '-')}.jpg`;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                          }}
+                          className="px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider bg-emerald-600 text-white hover:bg-emerald-700 transition-colors flex items-center gap-1 shadow-sm"
+                          title="Descargar Foto"
+                        >
+                          <span>⬇️ Descargar</span>
+                        </button>
+                      )}
+                      {imgUrl && (
+                        <button 
                           onClick={() => handleTriggerShare(imgUrl, style)}
-                          className="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider bg-slate-900 text-white hover:bg-red-600 transition-colors flex items-center gap-1 shadow-sm"
+                          className="px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider bg-slate-900 text-white hover:bg-red-600 transition-colors flex items-center gap-1 shadow-sm"
                           title="Compartir en Redes Sociales"
                         >
                           <span>📲</span>
@@ -532,10 +589,10 @@ const VirtualMirror: React.FC<VirtualMirrorProps> = (props) => {
             </p>
             <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tu Plan Actual:</span>
-              <span className="px-2.5 py-1 bg-amber-100 text-amber-800 rounded-full text-[9px] font-black uppercase tracking-widest">Plan Freemium</span>
+              <span className="px-2.5 py-1 bg-amber-100 text-amber-800 rounded-full text-[9px] font-black uppercase tracking-widest">Plan FREE</span>
             </div>
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-              Actualiza a un Plan Básico o Profesional para permitir que tus clientes viralicen sus cortes de cabello en redes sociales.
+              Actualiza al Plan Launch Pro ($1.00 USD) para permitir que tus clientes viralicen sus cortes de cabello en redes sociales.
             </p>
             <div className="pt-2">
               <button 

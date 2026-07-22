@@ -20,9 +20,8 @@ const MOCK_SERVICES_WITH_PRICES: { [key: string]: number } = {
 };
 
 const PLAN_PRICES = {
-  'Freemium': 0,
-  'Básico': 1.99,
-  'Profesional': 9.99,
+  'FREE': 0,
+  'LAUNCH_PRO': 1.00,
 };
 
 // Pseudo-random number generator function based on a seed string
@@ -107,17 +106,17 @@ export const getPlatformDashboardData = (shops: BarberShop[], bookings: Booking[
   const totalPlatformAnalyses = totalPlatformBookings * 2;
 
   let monthlyRecurringRevenue = 0;
-  const planCounts = { 'Freemium': 0, 'Básico': 0, 'Profesional': 0 };
+  const planCounts = { 'FREE': 0, 'LAUNCH_PRO': 0 };
   
   shops.forEach(shop => {
-      monthlyRecurringRevenue += PLAN_PRICES[shop.plan];
-      planCounts[shop.plan]++;
+      const p = (shop.plan === 'LAUNCH_PRO') ? 'LAUNCH_PRO' : 'FREE';
+      monthlyRecurringRevenue += PLAN_PRICES[p];
+      planCounts[p]++;
   });
 
   const planDistribution: PlanDistribution[] = [
-    { name: 'Freemium', count: planCounts['Freemium'], color: '#9ca3af' }, // gray-400
-    { name: 'Básico', count: planCounts['Básico'], color: '#f59e0b' }, // amber-500
-    { name: 'Profesional', count: planCounts['Profesional'], color: '#ef4444' }, // red-500
+    { name: 'FREE', count: planCounts['FREE'], color: '#9ca3af' }, // gray-400
+    { name: 'LAUNCH_PRO', count: planCounts['LAUNCH_PRO'], color: '#f59e0b' }, // amber-500
   ];
   
   const recentlyJoined = shops.slice(-3).reverse();

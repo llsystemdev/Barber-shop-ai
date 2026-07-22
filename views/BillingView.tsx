@@ -10,7 +10,7 @@ import UpgradeModal from '../components/UpgradeModal';
 
 interface BillingViewProps {
   shop: BarberShop;
-  onUpdatePlan: (shopId: string, newPlan: 'Freemium' | 'Básico' | 'Profesional') => void;
+  onUpdatePlan: (shopId: string, newPlan: 'FREE' | 'LAUNCH_PRO') => void;
   onUpdatePaymentMethod: (shopId: string, newMethod: PaymentMethod) => void;
 }
 

@@ -152,6 +152,29 @@ service cloud.firestore {
       allow read, write: if isSignedIn();
     }
 
+    // Colección de Planes de Suscripción (plans)
+    match /plans/{planId} {
+      allow read: if true;
+      allow write: if isPlatformAdmin();
+    }
+
+    // Colección de Historial de Pago (paymentHistory & paymentLogs)
+    match /paymentHistory/{docId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isPlatformAdmin());
+      allow create: if isSignedIn();
+      allow update, delete: if isPlatformAdmin();
+    }
+
+    match /paymentLogs/{docId} {
+      allow read, write: if isPlatformAdmin();
+    }
+
+    // Colección de Feature Flags (featureFlags)
+    match /featureFlags/{flagId} {
+      allow read: if true;
+      allow write: if isPlatformAdmin();
+    }
+
     // Colección de Configuración Global del Sistema (systemConfig)
     match /systemConfig/{configId} {
       // Configuración de precios y promociones es de lectura pública o autenticada

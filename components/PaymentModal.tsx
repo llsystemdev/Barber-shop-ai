@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { PaymentMethod } from '../types';
 
-type PlanName = 'Freemium' | 'Básico' | 'Profesional';
+type PlanName = 'FREE' | 'LAUNCH_PRO';
 type ModalContext = { type: 'changePlan' | 'updatePayment', plan?: PlanName } | null;
 
 interface PaymentModalProps {
@@ -14,9 +14,8 @@ interface PaymentModalProps {
 }
 
 const plansInfo = {
-  'Freemium': { price: '$0', priceNum: 0 },
-  'Básico': { price: '$19', priceNum: 19 },
-  'Profesional': { price: '$49', priceNum: 49 },
+  'FREE': { price: '$0', priceNum: 0 },
+  'LAUNCH_PRO': { price: '$1', priceNum: 1 },
 };
 
 const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, context, currentPlan, onSuccess, shopId }) => {
@@ -30,7 +29,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, context, c
   if (!isOpen || !context) return null;
 
   const displayPrice = isChangingPlan 
-    ? (isYearly ? `$${newPlan === 'Básico' ? '15' : '39'} / mes (facturado anualmente)` : plansInfo[newPlan!].price + ' / mes') 
+    ? (isYearly ? `$1 USD / mes (facturado anualmente)` : plansInfo[newPlan!].price + ' USD / mes') 
     : '';
 
   const handleConfirm = async () => {

@@ -213,8 +213,8 @@ export const enterpriseService = {
       {
         id: 'kb_1',
         category: 'Suscripción',
-        title: '¿Cómo funciona la facturación del Plan Profesional?',
-        content: 'El Plan Profesional se factura mensualmente a través de Stripe de manera automática. Incluye análisis de visagismo ilimitados de IA, integraciones con agendas externas y soporte prioritario de nuestro equipo técnico.',
+        title: '¿Cómo funciona la facturación del Plan Launch Pro?',
+        content: 'El Plan Launch Pro ($1.00 USD/mes) se factura mensualmente a través de Stripe o PayPal de manera automática. Incluye análisis de visagismo ilimitados de IA, espejo virtual ilimitado y soporte prioritario de nuestro equipo técnico.',
         role: 'shopOwner'
       },
       {

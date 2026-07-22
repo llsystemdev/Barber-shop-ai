@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { BarberShop, Booking, User as AppUser } from '../types';
+import { BarberShop, Booking, User as AppUser, SystemPricingConfig } from '../types';
 import { getAdminDashboardData, getPlatformDashboardData } from '../services/adminDataService';
+import { getSystemPricingConfig, updateSystemPricingConfig } from '../services/subscriptionService';
 import StatCard from '../components/StatCard';
 import BarChart from '../components/BarChart';
 import { MirrorIcon, CalendarIcon, BookingsIcon, ShopIcon, ChatIcon, BillingIcon } from '../assets/icons';
@@ -56,6 +57,32 @@ const AdminView: React.FC<AdminViewProps> = ({ currentUser, currentShop, booking
   // Loading & logs state
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
   const [isLoadingTickets, setIsLoadingTickets] = useState(false);
+
+  // System Pricing & Plan Limits State
+  const [sysPricing, setSysPricing] = useState<SystemPricingConfig | null>(null);
+  const [isSavingPricing, setIsSavingPricing] = useState(false);
+  const [pricingMsg, setPricingMsg] = useState('');
+
+  useEffect(() => {
+    if (isPlatformAdmin) {
+      getSystemPricingConfig().then(setSysPricing);
+    }
+  }, [isPlatformAdmin]);
+
+  const handleSavePricing = async () => {
+    if (!sysPricing) return;
+    setIsSavingPricing(true);
+    setPricingMsg('');
+    try {
+      await updateSystemPricingConfig(sysPricing);
+      setPricingMsg('✓ Configuración de precios y límites guardada correctamente en Firestore.');
+      setTimeout(() => setPricingMsg(''), 4000);
+    } catch (err: any) {
+      setPricingMsg('❌ Error al guardar la configuración: ' + (err.message || 'Error desconocido'));
+    } finally {
+      setIsSavingPricing(false);
+    }
+  };
 
   // Load SaaS dynamic metrics
   useEffect(() => {
@@ -356,10 +383,9 @@ const AdminView: React.FC<AdminViewProps> = ({ currentUser, currentShop, booking
                         <td className="py-4 text-slate-500">{shop.address}</td>
                         <td className="py-4">
                           <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${
-                            shop.plan === 'Profesional' ? 'bg-red-50 text-red-600' :
-                            shop.plan === 'Básico' ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-600'
+                            shop.plan === 'LAUNCH_PRO' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'
                           }`}>
-                            {shop.plan}
+                            {shop.plan === 'LAUNCH_PRO' ? 'LAUNCH PRO' : 'FREE'}
                           </span>
                         </td>
                         <td className="py-4 text-indigo-600 font-bold">{shop.aiName || 'Estilista AI'}</td>
@@ -781,7 +807,7 @@ const AdminView: React.FC<AdminViewProps> = ({ currentUser, currentShop, booking
                         <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                         <span className="font-mono text-[10px] font-bold uppercase text-slate-800">invoice.payment_succeeded</span>
                       </div>
-                      <p className="text-xs font-black text-slate-900 uppercase mt-1">Barbería Imperio - Plan Profesional ($9.99 USD)</p>
+                      <p className="text-xs font-black text-slate-900 uppercase mt-1">Barbería Imperio - Plan Launch Pro ($1.00 USD)</p>
                     </div>
                     <span className="text-[9px] font-mono text-slate-400">Hace 3 minutos</span>
                   </div>
@@ -792,7 +818,7 @@ const AdminView: React.FC<AdminViewProps> = ({ currentUser, currentShop, booking
                         <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                         <span className="font-mono text-[10px] font-bold uppercase text-slate-800">customer.subscription.created</span>
                       </div>
-                      <p className="text-xs font-black text-slate-900 uppercase mt-1">Retro Gentlemens Club - Plan Básico ($1.99 USD)</p>
+                      <p className="text-xs font-black text-slate-900 uppercase mt-1">Retro Gentlemens Club - Plan Launch Pro ($1.00 USD)</p>
                     </div>
                     <span className="text-[9px] font-mono text-slate-400">Hace 4 horas</span>
                   </div>
@@ -853,44 +879,102 @@ const AdminView: React.FC<AdminViewProps> = ({ currentUser, currentShop, booking
               </div>
 
               {/* Quick Admin Settings Form */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-6 rounded-2xl border border-slate-200">
-                <div className="space-y-2">
-                  <label className="block text-xs font-black uppercase text-slate-700">Precio Launch Pro (USD)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    defaultValue={1.00}
-                    className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold text-sm text-slate-900"
-                  />
-                  <p className="text-[10px] text-slate-500 font-bold">Configurable sin cambiar código.</p>
+              <div className="space-y-4 bg-slate-50 p-6 rounded-2xl border border-slate-200">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="block text-xs font-black uppercase text-slate-700">Precio Launch Pro (USD)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={sysPricing?.launchProPriceUsd ?? 1.00}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) || 1.00;
+                        setSysPricing(prev => prev ? { ...prev, launchProPriceUsd: val } : null);
+                      }}
+                      className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold text-sm text-slate-900 focus:ring-2 focus:ring-amber-500"
+                    />
+                    <p className="text-[10px] text-slate-500 font-bold">Configurable sin cambiar código.</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-xs font-black uppercase text-slate-700">Estado Promoción</label>
+                    <select
+                      value={sysPricing?.isPromoActive ? "true" : "false"}
+                      onChange={(e) => {
+                        const val = e.target.value === "true";
+                        setSysPricing(prev => prev ? { ...prev, isPromoActive: val } : null);
+                      }}
+                      className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold text-sm text-slate-900 focus:ring-2 focus:ring-amber-500"
+                    >
+                      <option value="true">Promoción de Lanzamiento Activa</option>
+                      <option value="false">Precio Regular</option>
+                    </select>
+                    <p className="text-[10px] text-slate-500 font-bold">Muestra aviso de precio temporal.</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-xs font-black uppercase text-slate-700">Límite Análisis IA (Free)</label>
+                    <input
+                      type="number"
+                      value={sysPricing?.freeLimits.monthlyAiAnalyses ?? 10}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10) || 10;
+                        setSysPricing(prev => prev ? {
+                          ...prev,
+                          freeLimits: { ...prev.freeLimits, monthlyAiAnalyses: val }
+                        } : null);
+                      }}
+                      className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold text-sm text-slate-900 focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-xs font-black uppercase text-slate-700">Límite Espejo Virtual (Free)</label>
+                    <input
+                      type="number"
+                      value={sysPricing?.freeLimits.monthlyMirrorGenerations ?? 5}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10) || 5;
+                        setSysPricing(prev => prev ? {
+                          ...prev,
+                          freeLimits: { ...prev.freeLimits, monthlyMirrorGenerations: val }
+                        } : null);
+                      }}
+                      className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold text-sm text-slate-900 focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="block text-xs font-black uppercase text-slate-700">Estado Promoción</label>
-                  <select className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold text-sm text-slate-900">
-                    <option value="true">Promoción de Lanzamiento Activa</option>
-                    <option value="false">Precio Regular</option>
-                  </select>
-                  <p className="text-[10px] text-slate-500 font-bold">Muestra aviso de precio temporal.</p>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="block text-xs font-black uppercase text-slate-700">Límite Análisis IA (Free)</label>
+                <div className="space-y-2 pt-2">
+                  <label className="block text-xs font-black uppercase text-slate-700">Mensaje del Cartel Promocional</label>
                   <input
-                    type="number"
-                    defaultValue={10}
-                    className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold text-sm text-slate-900"
+                    type="text"
+                    value={sysPricing?.promoNotice ?? 'Precio especial de lanzamiento. El precio aumentará cuando finalice la promoción.'}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSysPricing(prev => prev ? { ...prev, promoNotice: val } : null);
+                    }}
+                    className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold text-sm text-slate-900 focus:ring-2 focus:ring-amber-500"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="block text-xs font-black uppercase text-slate-700">Límite Espejo Virtual (Free)</label>
-                  <input
-                    type="number"
-                    defaultValue={5}
-                    className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold text-sm text-slate-900"
-                  />
-                </div>
+                {pricingMsg && (
+                  <div className="p-3 rounded-xl bg-slate-900 text-white font-bold text-xs text-center">
+                    {pricingMsg}
+                  </div>
+                )}
+
+                <button
+                  disabled={isSavingPricing}
+                  onClick={handleSavePricing}
+                  className="w-full bg-slate-950 hover:bg-slate-800 text-white font-black py-3.5 rounded-xl uppercase text-xs tracking-widest transition-all shadow-md flex items-center justify-center gap-2"
+                >
+                  {isSavingPricing ? (
+                    <span>Guardando cambios...</span>
+                  ) : (
+                    <span>Guardar Configuración en Firestore</span>
+                  )}
+                </button>
               </div>
 
               {/* Status Overview */}

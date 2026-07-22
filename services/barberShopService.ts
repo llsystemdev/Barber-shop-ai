@@ -57,7 +57,7 @@ export const getAllShops = async (): Promise<BarberShop[]> => {
         ],
         services: [{ name: 'Corte de Cabello Premium', price: '$25' }],
         barbers: [{ name: 'Estilista Pro', specialty: 'General', imageUrl: '' }],
-        plan: 'Básico',
+        plan: 'FREE',
         billingHistory: [],
         paymentMethod: { type: 'Visa', last4: '4242', expiry: '12/28' }
       };
@@ -110,7 +110,7 @@ export const createDefaultShopForUser = async (userId: string, userName: string)
       ],
       services: [{ name: 'Corte de Cabello Premium', price: '$25' }],
       barbers: [{ name: userName || 'Dueño', specialty: 'General', imageUrl: '' }],
-      plan: 'Freemium',
+      plan: 'FREE',
       billingHistory: [],
       paymentMethod: { type: 'Visa', last4: '0000', expiry: '00/00' }
     };

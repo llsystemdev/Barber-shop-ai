@@ -17,7 +17,7 @@ interface MirrorViewProps {
     analysisData?: any;
     isGeneratingImages: boolean[];
     activeAngle: 'front' | 'side' | 'threeQuarter';
-    plan: 'Freemium' | 'Básico' | 'Profesional'; // Added plan prop
+    plan: 'FREE' | 'LAUNCH_PRO' | 'Freemium' | 'Básico' | 'Profesional';
     activeColor: string | undefined;
     activeHighlights: string | undefined;
     activeLighting: string;
