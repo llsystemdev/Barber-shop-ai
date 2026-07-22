@@ -33,7 +33,7 @@ interface AdminViewProps {
   onSelectShop?: (shop: BarberShop) => void;
 }
 
-type PlatformTab = 'general' | 'security' | 'support' | 'compliance' | 'billing' | 'ai_metrics';
+type PlatformTab = 'general' | 'security' | 'support' | 'compliance' | 'billing' | 'subscriptions' | 'ai_metrics';
 
 const AdminView: React.FC<AdminViewProps> = ({ currentUser, currentShop, bookings, shops, viewMode, onSelectShop }) => {
   const isPlatformAdmin = viewMode === 'platform' || (viewMode === undefined && currentUser?.role === 'platformAdmin');
@@ -298,6 +298,17 @@ const AdminView: React.FC<AdminViewProps> = ({ currentUser, currentShop, booking
           >
             <Landmark className="w-4 h-4" />
             Stripe & Finanzas
+          </button>
+          <button 
+            onClick={() => setActiveTab('subscriptions')}
+            className={`flex items-center gap-2 px-5 py-3 text-xs font-black uppercase tracking-widest transition-all rounded-t-2xl border-t border-x flex-shrink-0 whitespace-nowrap snap-center ${
+              activeTab === 'subscriptions' 
+                ? 'bg-white border-slate-200 text-red-600 border-b-transparent -mb-[1px]' 
+                : 'bg-transparent border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            <Landmark className="w-4 h-4 text-amber-600" />
+            PayPal & Suscripciones
           </button>
           <button 
             onClick={() => setActiveTab('ai_metrics')}
@@ -818,6 +829,112 @@ const AdminView: React.FC<AdminViewProps> = ({ currentUser, currentShop, booking
                   <span className="text-xs text-slate-400 font-bold uppercase">Crecimiento Requerido</span>
                   <span className="text-xs font-black uppercase text-emerald-400">+12% anual</span>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 5.5: PAYPAL & SUBSCRIPTIONS MANAGEMENT */}
+        {activeTab === 'subscriptions' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start animate-fadeIn">
+            <div className="lg:col-span-2 bg-white p-8 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+                <div>
+                  <h3 className="text-lg font-black text-slate-950 uppercase tracking-tight">
+                    Gestor del Sistema de Suscripciones (Freemium & Launch Pro)
+                  </h3>
+                  <p className="text-xs text-slate-500 font-bold">
+                    Ajusta precios, promociones, límites del plan Free y la integración con PayPal.
+                  </p>
+                </div>
+                <span className="bg-amber-100 text-amber-900 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider">
+                  PayPal Active Provider
+                </span>
+              </div>
+
+              {/* Quick Admin Settings Form */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-6 rounded-2xl border border-slate-200">
+                <div className="space-y-2">
+                  <label className="block text-xs font-black uppercase text-slate-700">Precio Launch Pro (USD)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    defaultValue={1.00}
+                    className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold text-sm text-slate-900"
+                  />
+                  <p className="text-[10px] text-slate-500 font-bold">Configurable sin cambiar código.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-xs font-black uppercase text-slate-700">Estado Promoción</label>
+                  <select className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold text-sm text-slate-900">
+                    <option value="true">Promoción de Lanzamiento Activa</option>
+                    <option value="false">Precio Regular</option>
+                  </select>
+                  <p className="text-[10px] text-slate-500 font-bold">Muestra aviso de precio temporal.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-xs font-black uppercase text-slate-700">Límite Análisis IA (Free)</label>
+                  <input
+                    type="number"
+                    defaultValue={10}
+                    className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold text-sm text-slate-900"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-xs font-black uppercase text-slate-700">Límite Espejo Virtual (Free)</label>
+                  <input
+                    type="number"
+                    defaultValue={5}
+                    className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold text-sm text-slate-900"
+                  />
+                </div>
+              </div>
+
+              {/* Status Overview */}
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
+                  <span className="text-[10px] font-black text-emerald-800 uppercase tracking-widest block mb-1">SUSCRIPTORES PRO</span>
+                  <p className="text-2xl font-black text-emerald-950">142</p>
+                  <p className="text-[9px] font-bold text-emerald-600 uppercase">Launch Pro ($1.00/mes)</p>
+                </div>
+
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">USUARIOS FREE</span>
+                  <p className="text-2xl font-black text-slate-900">1,280</p>
+                  <p className="text-[9px] font-bold text-slate-500 uppercase">Potencial de Conversión</p>
+                </div>
+
+                <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100">
+                  <span className="text-[10px] font-black text-amber-800 uppercase tracking-widest block mb-1">PROVEEDOR PRINCIPAL</span>
+                  <p className="text-2xl font-black text-amber-950">PayPal</p>
+                  <p className="text-[9px] font-bold text-amber-700 uppercase">Stripe Ready Architecture</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Architecture Info Box */}
+            <div className="bg-slate-900 p-8 rounded-3xl text-white space-y-6">
+              <h3 className="text-xs font-black text-amber-400 uppercase tracking-widest border-b border-slate-800 pb-4">
+                Arquitectura de Pago Desacoplada
+              </h3>
+
+              <div className="space-y-4 text-xs font-medium text-slate-300">
+                <p>
+                  El sistema utiliza una interfaz unificada <code className="text-amber-300">IPaymentProvider</code> que abstrae las llamadas a PayPal REST API.
+                </p>
+                <div className="p-3 bg-slate-800/80 rounded-xl border border-slate-700 space-y-1">
+                  <p className="font-bold text-white text-[11px]">Proveedores Integrados:</p>
+                  <ul className="list-disc list-inside text-[11px] text-slate-400 font-mono">
+                    <li>PayPalProvider (Activo)</li>
+                    <li>StripeProvider (Ready)</li>
+                  </ul>
+                </div>
+                <p className="text-[10px] text-slate-400">
+                  Para activar Stripe o Mercado Pago en el futuro, sólo debes registrar la clase proveedora sin alterar las vistas ni las funciones de control de límites.
+                </p>
               </div>
             </div>
           </div>

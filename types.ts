@@ -203,5 +203,85 @@ export interface BlogPost {
   isPublished: boolean;
 }
 
+// Subscription & Freemium System Types
+export type SubscriptionPlanId = 'FREE' | 'LAUNCH_PRO';
+
+export type SubscriptionStatus = 'Active' | 'Pending' | 'Cancelled' | 'Expired' | 'Past Due' | 'Refunded';
+
+export type PaymentProviderType = 'paypal' | 'stripe' | 'mercado_pago' | 'mock';
+
+export interface PlanLimits {
+  monthlyAiAnalyses: number; // e.g. 10 for Free, -1 for unlimited
+  monthlyMirrorGenerations: number; // e.g. 5 for Free, -1 for unlimited
+  monthlyColorChanges: number; // e.g. 3 for Free, -1 for unlimited
+  hdExport: boolean; // false for Free, true for Pro
+  watermark: boolean; // true for Free, false for Pro
+  priorityProcessing: boolean; // false for Free, true for Pro
+  directSocialSharing: boolean; // false for Free, true for Pro
+  unlimitedStyles: boolean; // false for Free, true for Pro
+  earlyAccess: boolean; // false for Free, true for Pro
+}
+
+export interface SubscriptionPlan {
+  id: SubscriptionPlanId;
+  name: string;
+  badge: string;
+  priceUsd: number; // e.g. 0.00 for FREE, 1.00 for LAUNCH_PRO (configurable)
+  interval: 'monthly' | 'yearly';
+  isPromo: boolean;
+  promoText?: string;
+  description: string;
+  features: string[];
+  limits: PlanLimits;
+}
+
+export interface UserSubscription {
+  userId: string;
+  planId: SubscriptionPlanId;
+  status: SubscriptionStatus;
+  provider: PaymentProviderType;
+  paypalSubscriptionId?: string;
+  paypalOrderId?: string;
+  stripeSubscriptionId?: string;
+  startDate: string;
+  endDate?: string;
+  nextBillingDate?: string;
+  canceledAt?: string;
+  updatedAt: string;
+}
+
+export interface UserUsage {
+  userId: string;
+  monthKey: string; // e.g. "2026-07"
+  aiAnalysesCount: number;
+  mirrorGenerationsCount: number;
+  colorChangesCount: number;
+  lastUpdated: string;
+}
+
+export interface PaymentRecord {
+  id: string;
+  userId: string;
+  userEmail?: string;
+  planId: SubscriptionPlanId;
+  amountUsd: number;
+  currency: string;
+  status: SubscriptionStatus;
+  provider: PaymentProviderType;
+  transactionId: string;
+  invoiceRef: string;
+  createdAt: string;
+  renewalDate?: string;
+}
+
+export interface SystemPricingConfig {
+  launchProPriceUsd: number;
+  isPromoActive: boolean;
+  promoNotice: string;
+  freeLimits: PlanLimits;
+  updatedAt: string;
+}
+
+
 
 

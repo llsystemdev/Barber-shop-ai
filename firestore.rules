@@ -129,5 +129,35 @@ service cloud.firestore {
       allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isPlatformAdmin());
       allow update, delete: if false;
     }
+
+    // --- FREEMIUM SUBSCRIPTION SYSTEM COLLECTIONS ---
+
+    // Colección de Suscripciones (subscriptions)
+    match /subscriptions/{userId} {
+      // Un usuario solo puede leer y crear/actualizar su propia suscripción, o el administrador de la plataforma
+      allow read: if isSignedIn() && (userId == request.auth.uid || isPlatformAdmin());
+      allow create, update: if isSignedIn() && (userId == request.auth.uid || isPlatformAdmin());
+      allow delete: if isPlatformAdmin();
+    }
+
+    // Colección de Registros de Pago (payments)
+    match /payments/{paymentId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isPlatformAdmin());
+      allow create: if isSignedIn();
+      allow update, delete: if isPlatformAdmin();
+    }
+
+    // Colección de Registro de Uso Mensual (usage)
+    match /usage/{usageDocId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // Colección de Configuración Global del Sistema (systemConfig)
+    match /systemConfig/{configId} {
+      // Configuración de precios y promociones es de lectura pública o autenticada
+      allow read: if true;
+      // Solo administradores pueden modificar precios y parámetros del sistema
+      allow write: if isPlatformAdmin();
+    }
   }
 }

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@google/genai": "latest",
+    "@paypal/react-paypal-js": "^10.1.2",
     "@tailwindcss/vite": "^4.2.1",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
